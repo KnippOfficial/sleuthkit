@@ -1,4 +1,4 @@
-AM_CPPFLAGS = -I../.. -I$(srcdir)/../.. -Wall
+AM_CPPFLAGS = -I../.. -I$(srcdir)/../.. -Wall -std=c++11
 LDADD = ../../tsk/libtsk.la
 LDFLAGS += -static
 EXTRA_DIST = .indent.pro fscheck.cpp

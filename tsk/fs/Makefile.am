@@ -1,5 +1,6 @@
-AM_CPPFLAGS = -I../.. -I$(srcdir)/../.. -Wall
+AM_CPPFLAGS = -I../.. -I$(srcdir)/../.. -Wall -std=c++11
 EXTRA_DIST = .indent.pro
+AUTOMAKE_OPTIONS = subdir-objects
 
 noinst_LTLIBRARIES = libtskfs.la
 # Note that the .h files are in the top-level Makefile
@@ -17,10 +18,18 @@ libtskfs_la_SOURCES  = tsk_fs_i.h fs_inode.c fs_io.c fs_block.c fs_open.c \
     hfs.c hfs_dent.c hfs_journal.c hfs_unicompare.c \
     dcalc_lib.c dcat_lib.c dls_lib.c dstat_lib.c ffind_lib.c \
     fls_lib.c icat_lib.c ifind_lib.c ils_lib.c usn_journal.c usnjls_lib.c \
-    walk_cpp.cpp yaffs.cpp
+    walk_cpp.cpp yaffs.cpp \
+    zfs/Blkptr.cpp zfs/Blkptr.h \
+    zfs/Dnode.cpp zfs/Dnode.h \
+    zfs/NVList.cpp zfs/NVList.h \
+    zfs/ObjectSet.cpp zfs/ObjectSet.h \
+    zfs/Uberblock.cpp zfs/Uberblock.h \
+    zfs/UberblockArray.cpp zfs/UberblockArray.h \
+    zfs/ZAP.cpp zfs/ZAP.h \
+    zfs/ZFS_Functions.cpp zfs/ZFS_Functions.h
 
 indent:
-	indent *.c *.h
+	indent *.cpp*.c *.h
 
 clean-local:
-	-rm -f *.c~ *.h~
+	-rm -f *.cpp *.c~ *.h~

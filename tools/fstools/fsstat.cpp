@@ -13,6 +13,8 @@
 */
 
 #include "tsk/tsk_tools_i.h"
+#include "tsk/pool/TSK_POOL_INFO.h"
+#include "tsk/pool/ZFS_POOL.h"
 #include <locale.h>
 
 static TSK_TCHAR *progname;
@@ -22,7 +24,7 @@ usage()
 {
     TFPRINTF(stderr,
         _TSK_T
-        ("usage: %s [-tvV] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] image\n"),
+        ("usage: %s [-tvV] [-d dataset] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] [-P] image [images]\n"),
         progname);
     tsk_fprintf(stderr, "\t-t: display type only\n");
     tsk_fprintf(stderr,
@@ -33,6 +35,11 @@ usage()
         "\t-f fstype: File system type (use '-f list' for supported types)\n");
     tsk_fprintf(stderr,
         "\t-o imgoffset: The offset of the file system in the image (in sectors)\n");
+    tsk_fprintf(stderr,
+        "\t-P: Analyze as pool (expect directory of pool members as input)\n");
+    tsk_fprintf(stderr, "\t-T: Specify transaction number to use\n");
+    tsk_fprintf(stderr,
+        "\t-F: Specify file system (can only be used for pools)\n");
     tsk_fprintf(stderr, "\t-v: verbose output to stderr\n");
     tsk_fprintf(stderr, "\t-V: Print version\n");
 
@@ -45,12 +52,16 @@ main(int argc, char **argv1)
 {
     TSK_IMG_TYPE_ENUM imgtype = TSK_IMG_TYPE_DETECT;
     TSK_IMG_INFO *img;
+    TSK_POOL_INFO *pool_info;
 
     TSK_OFF_T imgaddr = 0;
     TSK_FS_TYPE_ENUM fstype = TSK_FS_TYPE_DETECT;
     TSK_FS_INFO *fs;
 
     int ch;
+    bool isPool = false;
+    int transaction = -1;
+    string filesystem = "";
     uint8_t type = 0;
     TSK_TCHAR **argv;
     unsigned int ssize = 0;
@@ -70,7 +81,7 @@ main(int argc, char **argv1)
     progname = argv[0];
     setlocale(LC_ALL, "");
 
-    while ((ch = GETOPT(argc, argv, _TSK_T("b:f:i:o:tvV"))) > 0) {
+    while ((ch = GETOPT(argc, argv, _TSK_T("b:f:F:i:o:tT:vV:P"))) > 0) {
         switch (ch) {
         case _TSK_T('?'):
         default:
@@ -99,7 +110,9 @@ main(int argc, char **argv1)
                 usage();
             }
             break;
-
+        case _TSK_T('F'):
+            filesystem = OPTARG;
+            break;
         case _TSK_T('i'):
             if (TSTRCMP(OPTARG, _TSK_T("list")) == 0) {
                 tsk_img_type_print(stderr);
@@ -119,11 +132,15 @@ main(int argc, char **argv1)
                 exit(1);
             }
             break;
-
+        case _TSK_T('P'):
+            isPool = true;
+            break;
         case _TSK_T('t'):
             type = 1;
             break;
-
+        case _TSK_T('T'):
+            transaction = TATOI(OPTARG);
+            break;
         case _TSK_T('v'):
             tsk_verbose++;
             break;
@@ -140,40 +157,52 @@ main(int argc, char **argv1)
         usage();
     }
 
-    if ((img =
-            tsk_img_open(argc - OPTIND, &argv[OPTIND], imgtype,
-                ssize)) == NULL) {
-        tsk_error_print(stderr);
-        exit(1);
-    }
-    if ((imgaddr * img->sector_size) >= img->size) {
-        tsk_fprintf(stderr,
-            "Sector offset supplied is larger than disk image (maximum: %"
-            PRIu64 ")\n", img->size / img->sector_size);
-        exit(1);
-    }
+    if(isPool){
+        pool_info = new TSK_POOL_INFO(TSK_LIT_ENDIAN, argv[OPTIND]);
+        TSK_POOL* pool = new ZFS_POOL(pool_info);
 
-    if ((fs = tsk_fs_open_img(img, imgaddr * img->sector_size, fstype)) == NULL) {
-        tsk_error_print(stderr);
-        if (tsk_error_get_errno() == TSK_ERR_FS_UNSUPTYPE)
-            tsk_fs_type_print(stderr);
-        img->close(img);
-        exit(1);
-    }
+        try {
+                pool->fsstat(filesystem, transaction);
+        }
+        catch (...) {
+            cerr << "fsstat failed. Used an older uberblock?" << endl;
+        }
 
-    if (type) {
-        tsk_printf("%s\n", tsk_fs_type_toname(fs->ftype));
-    }
-    else {
-        if (fs->fsstat(fs, stdout)) {
+    } else {
+        if ((img =
+                     tsk_img_open(argc - OPTIND, &argv[OPTIND], imgtype,
+                                  ssize)) == NULL) {
             tsk_error_print(stderr);
-            fs->close(fs);
+            exit(1);
+        }
+        if ((imgaddr * img->sector_size) >= img->size) {
+            tsk_fprintf(stderr,
+                        "Sector offset supplied is larger than disk image (maximum: %"
+                                PRIu64 ")\n", img->size / img->sector_size);
+            exit(1);
+        }
+
+        if ((fs = tsk_fs_open_img(img, imgaddr * img->sector_size, fstype)) == NULL) {
+            tsk_error_print(stderr);
+            if (tsk_error_get_errno() == TSK_ERR_FS_UNSUPTYPE)
+                tsk_fs_type_print(stderr);
             img->close(img);
             exit(1);
         }
-    }
 
-    fs->close(fs);
-    img->close(img);
+        if (type) {
+            tsk_printf("%s\n", tsk_fs_type_toname(fs->ftype));
+        } else {
+            if (fs->fsstat(fs, stdout)) {
+                tsk_error_print(stderr);
+                fs->close(fs);
+                img->close(img);
+                exit(1);
+            }
+        }
+
+        fs->close(fs);
+        img->close(img);
+    }
     exit(0);
 }

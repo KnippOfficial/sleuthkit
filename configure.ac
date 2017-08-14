@@ -322,7 +322,10 @@ AC_CONFIG_FILES([
     tsk/fs/Makefile
     tsk/hashdb/Makefile
     tsk/auto/Makefile
+    tsk/pool/Makefile
+    tsk/utils/Makefile
     tools/Makefile
+    tools/pooltools/Makefile
     tools/imgtools/Makefile
     tools/vstools/Makefile
     tools/fstools/Makefile

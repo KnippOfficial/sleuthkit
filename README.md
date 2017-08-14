@@ -39,6 +39,14 @@ description of these tools, refer to docs/filesystem.README.  The
 tools are briefly described in a file system layered approach.  Each
 tool name begins with a letter that is assigned to the layer.  
 
+### Pooled File System Layer: ###
+In order to perform an analysis of a pool used by a pooled storage file system,
+the 'pls' command can be used. It operates directly on a directory containing
+images, which are analyzed for their underlying pool configuration.
+Additionally, 'fls', 'fsstat', 'icat' and 'istat' can be used on
+pools by using the '-P' parameter.
+This version of TSK offers prototypical support for ZFS.
+
 ### File System Layer:
 A disk contains one or more partitions (or slices).  Each of these
 partitions contain a file system.  Examples of file systems include

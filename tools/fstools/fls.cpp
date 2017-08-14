@@ -22,6 +22,8 @@
 #include "tsk/tsk_tools_i.h"
 #include <locale.h>
 #include <time.h>
+#include "tsk/pool/TSK_POOL_INFO.h"
+#include "tsk/pool/ZFS_POOL.h"
 
 static TSK_TCHAR *progname;
 
@@ -30,7 +32,7 @@ usage()
 {
     TFPRINTF(stderr,
         _TSK_T
-        ("usage: %s [-adDFlhpruvV] [-f fstype] [-i imgtype] [-b dev_sector_size] [-m dir/] [-o imgoffset] [-z ZONE] [-s seconds] image [images] [inode]\n"),
+        ("usage: %s [-adDFlpruvV] [-f fstype] [-i imgtype] [-b dev_sector_size] [-m dir/] [-o imgoffset] [-z ZONE] [-s seconds] [-t transaction] [-P] image [images] [inode]\n"),
         progname);
     tsk_fprintf(stderr,
         "\tIf [inode] is not given, the root directory is used\n");
@@ -53,6 +55,9 @@ usage()
     tsk_fprintf(stderr,
         "\t-o imgoffset: Offset into image file (in sectors)\n");
     tsk_fprintf(stderr, "\t-p: Display full path for each file\n");
+    tsk_fprintf(stderr,
+                "\t-P: Analyze as pool (expect directory of pool members as input)\n");
+    tsk_fprintf(stderr, "\t-T: Specify transaction number to use\n");
     tsk_fprintf(stderr, "\t-r: Recurse on directory entries\n");
     tsk_fprintf(stderr, "\t-u: Display undeleted entries only\n");
     tsk_fprintf(stderr, "\t-v: verbose output to stderr\n");
@@ -70,6 +75,7 @@ main(int argc, char **argv1)
 {
     TSK_IMG_TYPE_ENUM imgtype = TSK_IMG_TYPE_DETECT;
     TSK_IMG_INFO *img;
+    TSK_POOL_INFO *pool_info;
 
     TSK_OFF_T imgaddr = 0;
     TSK_FS_TYPE_ENUM fstype = TSK_FS_TYPE_DETECT;
@@ -80,6 +86,8 @@ main(int argc, char **argv1)
     int ch;
     extern int OPTIND;
     int fls_flags;
+    int transaction = -1;
+    bool isPool = false;
     int32_t sec_skew = 0;
     static TSK_TCHAR *macpre = NULL;
     TSK_TCHAR **argv;
@@ -103,7 +111,7 @@ main(int argc, char **argv1)
     fls_flags = TSK_FS_FLS_DIR | TSK_FS_FLS_FILE;
 
     while ((ch =
-            GETOPT(argc, argv, _TSK_T("ab:dDf:Fi:m:hlo:prs:uvVz:"))) > 0) {
+            GETOPT(argc, argv, _TSK_T("ab:dDf:Fi:m:lo:Pprs:T:uvVz:"))) > 0) {
         switch (ch) {
         case _TSK_T('?'):
         default:
@@ -177,11 +185,17 @@ main(int argc, char **argv1)
         case _TSK_T('p'):
             fls_flags |= TSK_FS_FLS_FULL;
             break;
+        case _TSK_T('P'):
+            isPool = true;
+            break;
         case _TSK_T('r'):
             name_flags |= TSK_FS_DIR_WALK_FLAG_RECURSE;
             break;
         case _TSK_T('s'):
             sec_skew = TATOI(OPTARG);
+            break;
+        case _TSK_T('T'):
+            transaction = TATOI(OPTARG);
             break;
         case _TSK_T('u'):
             name_flags &= ~TSK_FS_DIR_WALK_FLAG_UNALLOC;
@@ -215,105 +229,122 @@ main(int argc, char **argv1)
         usage();
     }
 
+    if(isPool){
+        pool_info = new TSK_POOL_INFO(TSK_LIT_ENDIAN, argv[OPTIND]);
+        TSK_POOL* pool = new ZFS_POOL(pool_info);
 
-    /* Set the full flag to print the full path name if recursion is
-     ** set and we are only displaying files or deleted files
-     */
-    if ((name_flags & TSK_FS_DIR_WALK_FLAG_RECURSE)
-        && (((name_flags & TSK_FS_DIR_WALK_FLAG_UNALLOC)
-                && (!(name_flags & TSK_FS_DIR_WALK_FLAG_ALLOC)))
-            || ((fls_flags & TSK_FS_FLS_FILE)
-                && (!(fls_flags & TSK_FS_FLS_DIR))))) {
-
-        fls_flags |= TSK_FS_FLS_FULL;
-    }
-
-    /* set flag to save full path for mactimes style printing */
-    if (fls_flags & TSK_FS_FLS_MAC) {
-        fls_flags |= TSK_FS_FLS_FULL;
-    }
-
-    /* we need to append a / to the end of the directory if
-     * one does not already exist
-     */
-    if (macpre) {
-        size_t len = TSTRLEN(macpre);
-        if (macpre[len - 1] != '/') {
-            TSK_TCHAR *tmp = macpre;
-            macpre = (TSK_TCHAR *) malloc(len + 2 * sizeof(TSK_TCHAR));
-            TSTRNCPY(macpre, tmp, len + 1);
-            TSTRNCAT(macpre, _TSK_T("/"), len + 2);
+        try {
+            if (OPTIND + 1 < argc) {
+                pool->fls(argv[OPTIND + 1], transaction);
+            } else {
+                pool->fls("", transaction);
+            }
         }
-    }
+        catch (...) {
+            cerr << "fls failed. Used an older uberblock?" << endl;
+        }
 
-    /* open image - there is an optional inode address at the end of args 
-     *
-     * Check the final argument and see if it is a number
-     */
-    if (tsk_fs_parse_inum(argv[argc - 1], &inode, NULL, NULL, NULL, NULL)) {
-        /* Not an inode at the end */
-        if ((img =
-                tsk_img_open(argc - OPTIND, &argv[OPTIND],
-                    imgtype, ssize)) == NULL) {
+    } else {
+        /* Set the full flag to print the full path name if recursion is
+         ** set and we are only displaying files or deleted files
+         */
+        if ((name_flags & TSK_FS_DIR_WALK_FLAG_RECURSE)
+            && (((name_flags & TSK_FS_DIR_WALK_FLAG_UNALLOC)
+                 && (!(name_flags & TSK_FS_DIR_WALK_FLAG_ALLOC)))
+                || ((fls_flags & TSK_FS_FLS_FILE)
+                    && (!(fls_flags & TSK_FS_FLS_DIR))))) {
+
+            fls_flags |= TSK_FS_FLS_FULL;
+        }
+
+        /* set flag to save full path for mactimes style printing */
+        if (fls_flags & TSK_FS_FLS_MAC) {
+            fls_flags |= TSK_FS_FLS_FULL;
+        }
+
+        /* we need to append a / to the end of the directory if
+         * one does not already exist
+         */
+        if (macpre) {
+            size_t len = TSTRLEN(macpre);
+            if (macpre[len - 1] != '/') {
+                TSK_TCHAR *tmp = macpre;
+                macpre = (TSK_TCHAR *) malloc(len + 2 * sizeof(TSK_TCHAR));
+                TSTRNCPY(macpre, tmp, len + 1);
+                TSTRNCAT(macpre, _TSK_T("/"), len + 2);
+            }
+        }
+
+        /* open image - there is an optional inode address at the end of args
+         *
+         * Check the final argument and see if it is a number
+         */
+        if (tsk_fs_parse_inum(argv[argc - 1], &inode, NULL, NULL, NULL, NULL)) {
+            /* Not an inode at the end */
+            if ((img =
+                         tsk_img_open(argc - OPTIND, &argv[OPTIND],
+                                      imgtype, ssize)) == NULL) {
+                tsk_error_print(stderr);
+                exit(1);
+            }
+            if ((imgaddr * img->sector_size) >= img->size) {
+                tsk_fprintf(stderr,
+                            "Sector offset supplied is larger than disk image (maximum: %"
+                PRIu64
+                ")\n", img->size / img->sector_size);
+                exit(1);
+            }
+            if ((fs = tsk_fs_open_img(img, imgaddr * img->sector_size, fstype)) == NULL) {
+                tsk_error_print(stderr);
+                if (tsk_error_get_errno() == TSK_ERR_FS_UNSUPTYPE)
+                    tsk_fs_type_print(stderr);
+
+                img->close(img);
+                exit(1);
+            }
+            inode = fs->root_inum;
+        } else {
+            // check that we have enough arguments
+            if (OPTIND + 1 == argc) {
+                tsk_fprintf(stderr, "Missing image name or inode\n");
+                usage();
+            }
+
+            if ((img =
+                         tsk_img_open(argc - OPTIND - 1, &argv[OPTIND],
+                                      imgtype, ssize)) == NULL) {
+                tsk_error_print(stderr);
+                exit(1);
+            }
+            if ((imgaddr * img->sector_size) >= img->size) {
+                tsk_fprintf(stderr,
+                            "Sector offset supplied is larger than disk image (maximum: %"
+                PRIu64
+                ")\n", img->size / img->sector_size);
+                exit(1);
+            }
+
+
+            if ((fs = tsk_fs_open_img(img, imgaddr * img->sector_size, fstype)) == NULL) {
+                tsk_error_print(stderr);
+                if (tsk_error_get_errno() == TSK_ERR_FS_UNSUPTYPE)
+                    tsk_fs_type_print(stderr);
+                img->close(img);
+                exit(1);
+            }
+        }
+
+        if (tsk_fs_fls(fs, (TSK_FS_FLS_FLAG_ENUM) fls_flags, inode,
+                       (TSK_FS_DIR_WALK_FLAG_ENUM) name_flags, macpre, sec_skew)) {
             tsk_error_print(stderr);
-            exit(1);
-        }
-        if ((imgaddr * img->sector_size) >= img->size) {
-            tsk_fprintf(stderr,
-                "Sector offset supplied is larger than disk image (maximum: %"
-                PRIu64 ")\n", img->size / img->sector_size);
-            exit(1);
-        }
-        if ((fs = tsk_fs_open_img(img, imgaddr * img->sector_size, fstype)) == NULL) {
-            tsk_error_print(stderr);
-            if (tsk_error_get_errno() == TSK_ERR_FS_UNSUPTYPE)
-                tsk_fs_type_print(stderr);
-
+            fs->close(fs);
             img->close(img);
             exit(1);
         }
-        inode = fs->root_inum;
-    }
-    else {
-        // check that we have enough arguments
-        if (OPTIND + 1 == argc) {
-            tsk_fprintf(stderr, "Missing image name or inode\n");
-            usage();
-        }
 
-        if ((img =
-                tsk_img_open(argc - OPTIND - 1, &argv[OPTIND],
-                    imgtype, ssize)) == NULL) {
-            tsk_error_print(stderr);
-            exit(1);
-        }
-        if ((imgaddr * img->sector_size) >= img->size) {
-            tsk_fprintf(stderr,
-                "Sector offset supplied is larger than disk image (maximum: %"
-                PRIu64 ")\n", img->size / img->sector_size);
-            exit(1);
-        }
-
-
-        if ((fs = tsk_fs_open_img(img, imgaddr * img->sector_size, fstype)) == NULL) {
-            tsk_error_print(stderr);
-            if (tsk_error_get_errno() == TSK_ERR_FS_UNSUPTYPE)
-                tsk_fs_type_print(stderr);
-            img->close(img);
-            exit(1);
-        }
-    }
-
-    if (tsk_fs_fls(fs, (TSK_FS_FLS_FLAG_ENUM) fls_flags, inode,
-            (TSK_FS_DIR_WALK_FLAG_ENUM) name_flags, macpre, sec_skew)) {
-        tsk_error_print(stderr);
         fs->close(fs);
         img->close(img);
-        exit(1);
     }
-
-    fs->close(fs);
-    img->close(img);
 
     exit(0);
 }

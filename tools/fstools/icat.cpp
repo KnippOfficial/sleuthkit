@@ -23,6 +23,8 @@
 
 #include "tsk/tsk_tools_i.h"
 #include <locale.h>
+#include "tsk/pool/TSK_POOL_INFO.h"
+#include "tsk/pool/ZFS_POOL.h"
 
 /* usage - explain and terminate */
 
@@ -33,7 +35,7 @@ usage()
 {
     TFPRINTF(stderr,
         _TSK_T
-        ("usage: %s [-hrRsvV] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] image [images] inum[-typ[-id]]\n"),
+        ("usage: %s [-hrRsvV] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] [-P] image [images] inum[-typ[-id]]\n"),
         progname);
     tsk_fprintf(stderr, "\t-h: Do not display holes in sparse files\n");
     tsk_fprintf(stderr, "\t-r: Recover deleted file\n");
@@ -48,6 +50,11 @@ usage()
         "\t-f fstype: File system type (use '-f list' for supported types)\n");
     tsk_fprintf(stderr,
         "\t-o imgoffset: The offset of the file system in the image (in sectors)\n");
+    tsk_fprintf(stderr,
+                "\t-F: Specify file system (can only be used for pools)\n");
+    tsk_fprintf(stderr,
+        "\t-P: Analyze as pool (expect directory of pool members as input)\n");
+    tsk_fprintf(stderr, "\t-T: Specify transaction number to use\n");
     tsk_fprintf(stderr, "\t-v: verbose to stderr\n");
     tsk_fprintf(stderr, "\t-V: Print version\n");
 
@@ -59,6 +66,7 @@ main(int argc, char **argv1)
 {
     TSK_IMG_TYPE_ENUM imgtype = TSK_IMG_TYPE_DETECT;
     TSK_IMG_INFO *img;
+    TSK_POOL_INFO *pool_info;
 
     TSK_OFF_T imgaddr = 0;
     TSK_FS_TYPE_ENUM fstype = TSK_FS_TYPE_DETECT;
@@ -71,6 +79,9 @@ main(int argc, char **argv1)
     uint16_t id = 0;
     uint8_t id_used = 0, type_used = 0;
     int retval;
+    bool isPool = false;
+    string filesystem = "";
+    int transaction = -1;
     int suppress_recover_error = 0;
     TSK_TCHAR **argv;
     TSK_TCHAR *cp;
@@ -90,7 +101,7 @@ main(int argc, char **argv1)
     progname = argv[0];
     setlocale(LC_ALL, "");
 
-    while ((ch = GETOPT(argc, argv, _TSK_T("b:f:hi:o:rRsvV"))) > 0) {
+    while ((ch = GETOPT(argc, argv, _TSK_T("b:f:F:hi:o:PrRsT:vV"))) > 0) {
         switch (ch) {
         case _TSK_T('?'):
         default:
@@ -119,6 +130,9 @@ main(int argc, char **argv1)
                 usage();
             }
             break;
+        case _TSK_T('F'):
+            filesystem = OPTARG;
+            break;
         case _TSK_T('h'):
             fw_flags |= TSK_FS_FILE_WALK_FLAG_NOSPARSE;
             break;
@@ -140,6 +154,9 @@ main(int argc, char **argv1)
                 exit(1);
             }
             break;
+        case _TSK_T('P'):
+            isPool = true;
+            break;
         case _TSK_T('r'):
             // this is no longer needed, so we silently ignore it. 
             break;
@@ -148,6 +165,9 @@ main(int argc, char **argv1)
             break;
         case _TSK_T('s'):
             fw_flags |= TSK_FS_FILE_WALK_FLAG_SLACK;
+            break;
+        case _TSK_T('T'):
+            transaction = TATOI(OPTARG);
             break;
         case _TSK_T('v'):
             tsk_verbose++;
@@ -164,67 +184,84 @@ main(int argc, char **argv1)
         usage();
     }
 
-    /* Get the inode address */
-    if (tsk_fs_parse_inum(argv[argc - 1], &inum, &type, &type_used, &id,
-            &id_used)) {
-        TFPRINTF(stderr, _TSK_T("Invalid inode address: %s\n"),
-            argv[argc - 1]);
-        usage();
-    }
-
-    if ((img =
-            tsk_img_open(argc - OPTIND - 1, &argv[OPTIND],
-                imgtype, ssize)) == NULL) {
-        tsk_error_print(stderr);
-        exit(1);
-    }
-    if ((imgaddr * img->sector_size) >= img->size) {
-        tsk_fprintf(stderr,
-            "Sector offset supplied is larger than disk image (maximum: %"
-            PRIu64 ")\n", img->size / img->sector_size);
-        exit(1);
-    }
-    if ((fs = tsk_fs_open_img(img, imgaddr * img->sector_size, fstype)) == NULL) {
-        tsk_error_print(stderr);
-        if (tsk_error_get_errno() == TSK_ERR_FS_UNSUPTYPE)
-            tsk_fs_type_print(stderr);
-        img->close(img);
-        exit(1);
-    }
-
-    if (inum > fs->last_inum) {
-        tsk_fprintf(stderr,
-            "Metadata address too large for image (%" PRIuINUM ")\n",
-            fs->last_inum);
-        fs->close(fs);
-        img->close(img);
-        exit(1);
-    }
-    if (inum < fs->first_inum) {
-        tsk_fprintf(stderr,
-            "Metadata address too small for image (%" PRIuINUM ")\n",
-            fs->first_inum);
-        fs->close(fs);
-        img->close(img);
-        exit(1);
-    }
-
-    retval =
-        tsk_fs_icat(fs, inum, type, type_used, id, id_used,
-        (TSK_FS_FILE_WALK_FLAG_ENUM) fw_flags);
-    if (retval) {
-        if ((suppress_recover_error == 1)
-            && (tsk_error_get_errno() == TSK_ERR_FS_RECOVER)) {
-            tsk_error_reset();
+    if(isPool){
+        pool_info = new TSK_POOL_INFO(TSK_LIT_ENDIAN, argv[OPTIND]);
+        TSK_POOL* pool = new ZFS_POOL(pool_info);
+        try {
+            if (OPTIND + 1 < argc) {
+                pool->icat(stoi(argv[OPTIND + 1]), filesystem, transaction);
+            } else {
+                cout << "Please specify an object number" << endl;
+            }
         }
-        else {
+        catch (...) {
+            cerr << "icat failed. Used an older uberblock?" << endl;
+        }
+
+
+    } else {
+        /* Get the inode address */
+        if (tsk_fs_parse_inum(argv[argc - 1], &inum, &type, &type_used, &id,
+                              &id_used)) {
+            TFPRINTF(stderr, _TSK_T("Invalid inode address: %s\n"),
+                     argv[argc - 1]);
+            usage();
+        }
+
+        if ((img =
+                     tsk_img_open(argc - OPTIND - 1, &argv[OPTIND],
+                                  imgtype, ssize)) == NULL) {
             tsk_error_print(stderr);
+            exit(1);
+        }
+        if ((imgaddr * img->sector_size) >= img->size) {
+            tsk_fprintf(stderr,
+                        "Sector offset supplied is larger than disk image (maximum: %"
+                                PRIu64 ")\n", img->size / img->sector_size);
+            exit(1);
+        }
+        if ((fs = tsk_fs_open_img(img, imgaddr * img->sector_size, fstype)) == NULL) {
+            tsk_error_print(stderr);
+            if (tsk_error_get_errno() == TSK_ERR_FS_UNSUPTYPE)
+                tsk_fs_type_print(stderr);
+            img->close(img);
+            exit(1);
+        }
+
+        if (inum > fs->last_inum) {
+            tsk_fprintf(stderr,
+                        "Metadata address too large for image (%" PRIuINUM ")\n",
+                        fs->last_inum);
             fs->close(fs);
             img->close(img);
             exit(1);
         }
+        if (inum < fs->first_inum) {
+            tsk_fprintf(stderr,
+                        "Metadata address too small for image (%" PRIuINUM ")\n",
+                        fs->first_inum);
+            fs->close(fs);
+            img->close(img);
+            exit(1);
+        }
+
+        retval =
+                tsk_fs_icat(fs, inum, type, type_used, id, id_used,
+                            (TSK_FS_FILE_WALK_FLAG_ENUM) fw_flags);
+        if (retval) {
+            if ((suppress_recover_error == 1)
+                && (tsk_error_get_errno() == TSK_ERR_FS_RECOVER)) {
+                tsk_error_reset();
+            } else {
+                tsk_error_print(stderr);
+                fs->close(fs);
+                img->close(img);
+                exit(1);
+            }
+        }
+        fs->close(fs);
+        img->close(img);
     }
-    fs->close(fs);
-    img->close(img);
+
     exit(0);
 }
