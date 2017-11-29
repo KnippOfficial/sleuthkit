@@ -148,6 +148,7 @@ tools/fstools/ifind
 tools/fstools/ils
 tools/fstools/istat
 tools/fstools/jcat
+tools/fstools/usnjls
 tools/fstools/jls
 tools/hashtools/hfind
 tools/imgtools/img_cat
