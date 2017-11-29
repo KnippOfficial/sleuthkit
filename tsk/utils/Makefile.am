@@ -3,7 +3,7 @@ EXTRA_DIST = .indent.pro
 
 noinst_LTLIBRARIES = libtskutils.la
 # Note that the .h files are in the top-level Makefile
-libtskutils_la_SOURCES  = lz4.h lz4.cpp ReadInt.h ReadInt.cpp Tools.h Tools.cpp
+libtskutils_la_SOURCES  = lz4.h lz4.cpp ReadInt.h ReadInt.cpp Tools.h Tools.cpp Uuid.h Uuid.cpp
 
 indent:
 	indent *.cpp *.h

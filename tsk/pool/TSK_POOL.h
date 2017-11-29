@@ -24,10 +24,17 @@ private:
 
 public:
     virtual void fsstat(string str_dataset, int transaction) = 0;
-    virtual void fls(string str_dataset, int transaction) = 0;
-    virtual void istat(int object_number, string str_dataset, int transaction) = 0;
-    virtual void icat(int object_number, string str_dataset, int transaction) = 0;
-};
 
+    virtual void fls(string str_dataset, int transaction) = 0;
+
+    virtual void istat(int object_number, string str_dataset, int transaction) = 0;
+
+    virtual void icat(int object_number, string str_dataset, int transaction) = 0;
+
+    virtual void print(std::ostream &os) const = 0;
+
+    friend std::ostream &operator<<(std::ostream &os, const TSK_POOL &pool);
+
+};
 
 #endif //THESLEUTHKIT_ZTK_TSK_POOL_H

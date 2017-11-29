@@ -19,6 +19,8 @@
 #include <map>
 #include <string>
 #include <dirent.h>
+#include "TSK_POOL.h"
+
 
 enum TSK_POOL_TYPE {TSK_ZFS_POOL, TSK_BTRFS_POOL};
 
@@ -37,7 +39,7 @@ public:
 
     std::map<std::string, TSK_IMG_INFO*> members;
 
-    void detectPoolType();
+    TSK_POOL* createPoolObject();
     void displayAllDevices();
     void displayAllMembers();
     void readData(int device, TSK_OFF_T offset, std::vector<char>& buffer, size_t size);

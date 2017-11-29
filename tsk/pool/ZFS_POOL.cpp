@@ -18,7 +18,7 @@
 #include "../fs/zfs/ZAP.h"
 
 ZFS_POOL::ZFS_POOL(TSK_POOL_INFO *pool)
-        : vdevs(), availableIDs(), noAllVdevs(0), pool_guid(0), name(""), reconstructable(true), pool(pool),
+        : vdevs(), availableIDs(), no_all_vdevs(0), pool_guid(0), name(""), reconstructable(true), pool(pool),
           uberblock_array(nullptr) {
     NVList *list = nullptr;
     NVList *vdev_tree = nullptr; //part of the list containing information about subtree
@@ -29,13 +29,19 @@ ZFS_POOL::ZFS_POOL(TSK_POOL_INFO *pool)
     //init for ZFS pool
     for (auto &it : pool->members) {
         tsk_img_read(it.second, 0x4004, diskData.data(), (112 * 1024));
-        list = new NVList(TSK_BIG_ENDIAN, (uint8_t *) diskData.data());
+        try {
+            list = new NVList(TSK_BIG_ENDIAN, (uint8_t *) diskData.data());
+        }
+        catch (...) {
+            throw "No valid ZFS Pool";
+        }
+
         current_guid = list->getIntValue("guid");
         vdev_tree = list->getNVListArray("vdev_tree").at(0);
 
         //initialize using first image (take its pool_guid and number of top-level vdevs)
         if (!initialized) {
-            noAllVdevs = list->getIntValue("vdev_children");
+            no_all_vdevs = list->getIntValue("vdev_children");
             pool_guid = list->getIntValue("pool_guid");
             name = list->getStringValue("name");
             initialized = true;
@@ -50,7 +56,7 @@ ZFS_POOL::ZFS_POOL(TSK_POOL_INFO *pool)
         delete list;
 
         if (!temp->addDevice(current_guid, it)) {
-            cout << it.first << " with GUID " << current_guid << " is already in the pool!" << endl;
+            cerr << it.first << " with GUID " << current_guid << " is already in the pool!" << endl;
         }
     }
     checkReconstructable();
@@ -93,9 +99,9 @@ void ZFS_POOL::checkReconstructable() {
     }
 
     //second: check if all top-level vdevs are present (e.g. missing single disk/file)
-    if (noAllVdevs > vdevs.size()) {
+    if (no_all_vdevs > vdevs.size()) {
         reconstructable = false;
-        cerr << "Missing " << (noAllVdevs - vdevs.size()) << " top-level vdev(s)!" << endl;
+        cerr << "Missing " << (no_all_vdevs - vdevs.size()) << " top-level vdev(s)!" << endl;
     }
 }
 
@@ -212,7 +218,7 @@ void ZFS_POOL::readData(int tvdev_id, uint64_t offset, uint64_t length, vector<c
             buffer.insert(buffer.end(), diskData.data(), diskData.data() + dataCols.at(c).size);
         }
     } else {
-        cout << "vdev type '" << vdev_type << "' is not supported!" << endl;
+        cerr << "vdev type '" << vdev_type << "' is not supported!" << endl;
     }
 }
 
@@ -253,10 +259,20 @@ void ZFS_POOL::readData(Blkptr *blkptr, vector<char> &buffer, bool decompress) {
     }
 }
 
+void ZFS_POOL::print(std::ostream &os) const {
+    os << "Name: " << name << endl;
+    os << "Pool GUID: " << pool_guid << endl;
+    os << "Number of top-level vdevs: " << no_all_vdevs << " (" << vdevs.size() << " detected)" << endl;
+    //print toplevel vdevs
+    for (int i = 0; i < vdevs.size(); i++) {
+        os << *vdevs.at(i);
+    }
+}
+
 ostream &operator<<(ostream &os, const ZFS_POOL &pool) {
     os << "Name: " << pool.name << endl;
     os << "Pool GUID: " << pool.pool_guid << endl;
-    os << "Number of top-level vdevs: " << pool.noAllVdevs << " (" << pool.vdevs.size() << " detected)" << endl;
+    os << "Number of top-level vdevs: " << pool.no_all_vdevs << " (" << pool.vdevs.size() << " detected)" << endl;
     //print toplevel vdevs
     for (int i = 0; i < pool.vdevs.size(); i++) {
         os << *pool.vdevs.at(i);

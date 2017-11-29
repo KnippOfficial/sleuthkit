@@ -152,6 +152,7 @@ tools/fstools/jls
 tools/hashtools/hfind
 tools/imgtools/img_cat
 tools/imgtools/img_stat
+tools/pooltools/pls
 tools/sorter/sorter
 tools/srchtools/sigfind
 tools/srchtools/srch_strings
@@ -166,3 +167,4 @@ tools/*/*/*.exe
 
 # Mac Junk
 .DS_Store
+.dirstamp

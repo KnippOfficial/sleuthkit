@@ -12,10 +12,11 @@
  */
 
 #include "TSK_POOL_INFO.h"
+#include "ZFS_POOL.h"
+#include "BTRFS_POOL.h"
 
-TSK_POOL_INFO::TSK_POOL_INFO(TSK_ENDIAN_ENUM endian, std::string pathToFolder) 
-    : numberMembers(0), poolName(""), poolGUID(0), type(), unavailableMembers()
-{
+TSK_POOL_INFO::TSK_POOL_INFO(TSK_ENDIAN_ENUM endian, std::string pathToFolder)
+        : numberMembers(0), poolName(""), poolGUID(0), type(), unavailableMembers() {
     //TODO: recursive directory search
     //read all given volumes
     auto dir = opendir(pathToFolder.c_str());
@@ -25,14 +26,14 @@ TSK_POOL_INFO::TSK_POOL_INFO(TSK_ENDIAN_ENUM endian, std::string pathToFolder)
             if (ent->d_type != DT_DIR) {
                 std::string pathToFile = "";
                 if (pathToFolder.back() == '/') {
-                    pathToFile =  (pathToFolder+ent->d_name);
-                }
-                else {
-                    pathToFile =  (pathToFolder+"/"+ent->d_name);
+                    pathToFile = (pathToFolder + ent->d_name);
+                } else {
+                    pathToFile = (pathToFolder + "/" + ent->d_name);
                 }
 
-                members[pathToFile] = (tsk_img_open(1, (const TSK_TCHAR* const*) &pathToFile, TSK_IMG_TYPE_DETECT, 0));
-                if (members[pathToFile] == nullptr){
+                members[pathToFile] = (tsk_img_open(1, (const TSK_TCHAR *const *) &pathToFile, TSK_IMG_TYPE_DETECT, 0));
+                //cout << pathToFile << endl;
+                if (members[pathToFile] == nullptr) {
                     tsk_error_print(stderr);
                     std::cerr << "Cannot open image " << pathToFile << "." << std::endl;
                     exit(1);
@@ -40,18 +41,33 @@ TSK_POOL_INFO::TSK_POOL_INFO(TSK_ENDIAN_ENUM endian, std::string pathToFolder)
                 numberMembers += 1;
             }
         }
-        closedir (dir);
+        closedir(dir);
     }
 }
 
-void TSK_POOL_INFO::displayAllMembers(){
+void TSK_POOL_INFO::displayAllMembers() {
     //TODO: display all members of a pool
 
 }
 
-void TSK_POOL_INFO::detectPoolType(){
-    //TODO: detection of pool type
+TSK_POOL *TSK_POOL_INFO::createPoolObject() {
+    TSK_POOL *pool = nullptr;
 
+    try {
+        pool = new ZFS_POOL(this);
+        type = TSK_ZFS_POOL;
+    } catch (...) {
+        //cerr << "Not a ZFS pool!" << endl;
+    }
+
+    try {
+        pool = new BTRFS_POOL(this);
+        type = TSK_BTRFS_POOL;
+    } catch (...) {
+        //cerr << "Not a BTRFS pool!" << endl;
+    }
+
+    return pool;
 }
 
 void TSK_POOL_INFO::displayAllDevices() {
@@ -60,7 +76,7 @@ void TSK_POOL_INFO::displayAllDevices() {
     }
 }
 
-void TSK_POOL_INFO::readData(int device, TSK_OFF_T offset, std::vector<char>& buffer, size_t length) {
+void TSK_POOL_INFO::readData(int device, TSK_OFF_T offset, std::vector<char> &buffer, size_t length) {
     auto it = this->members.begin();
     for (int i = 0; i < device; i++) {
         it++;
@@ -70,7 +86,7 @@ void TSK_POOL_INFO::readData(int device, TSK_OFF_T offset, std::vector<char>& bu
 }
 
 TSK_POOL_INFO::~TSK_POOL_INFO() {
-    for (auto& m : members) {
+    for (auto &m : members) {
         tsk_img_close(m.second);
     }
 }

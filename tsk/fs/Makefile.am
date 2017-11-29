@@ -19,6 +19,37 @@ libtskfs_la_SOURCES  = tsk_fs_i.h fs_inode.c fs_io.c fs_block.c fs_open.c \
     dcalc_lib.c dcat_lib.c dls_lib.c dstat_lib.c ffind_lib.c \
     fls_lib.c icat_lib.c ifind_lib.c ils_lib.c usn_journal.c usnjls_lib.c \
     walk_cpp.cpp yaffs.cpp \
+    btrfs/Basics/Basics.h \
+    btrfs/Basics/BlockGroupItem.cpp btrfs/Basics/BlockGroupItem.h \
+    btrfs/Basics/BtrfsHeader.h btrfs/Basics/BtrfsHeader.cpp \
+    btrfs/Basics/BtrfsItem.h \
+    btrfs/Basics/BtrfsKey.h btrfs/Basics/BtrfsKey.cpp \
+    btrfs/Basics/ChunkData.h btrfs/Basics/ChunkData.cpp \
+    btrfs/Basics/ChunkItem.h btrfs/Basics/ChunkItem.cpp \
+    btrfs/Basics/DevData.h btrfs/Basics/DevData.cpp \
+    btrfs/Basics/DirItem.h btrfs/Basics/DirItem.cpp \
+    btrfs/Basics/Enums.h \
+    btrfs/Basics/Exceptions.h \
+    btrfs/Basics/ExtentData.h btrfs/Basics/ExtentData.cpp \
+    btrfs/Basics/ExtentItem.h btrfs/Basics/ExtentItem.cpp \
+    btrfs/Basics/InodeData.h btrfs/Basics/InodeData.cpp \
+    btrfs/Basics/InodeItem.h btrfs/Basics/InodeItem.cpp \
+    btrfs/Basics/InodeRef.h btrfs/Basics/InodeRef.cpp \
+    btrfs/Basics/ItemHead.h btrfs/Basics/ItemHead.cpp \
+    btrfs/Basics/KeyPtr.h btrfs/Basics/KeyPtr.cpp \
+    btrfs/Basics/RootItem.h btrfs/Basics/RootItem.cpp \
+    btrfs/Basics/RootRef.h btrfs/Basics/RootRef.cpp \
+    btrfs/Basics/UnknownItem.h btrfs/Examiners/Examiners.h \
+    btrfs/Examiners/Functions.h btrfs/Examiners/Functions.cpp \
+    btrfs/Examiners/TreeExaminer.h btrfs/Examiners/TreeExaminer.cpp \
+    btrfs/Trees/BtrfsNode.h btrfs/Trees/BtrfsNode.cpp \
+    btrfs/Trees/ChunkTree.h btrfs/Trees/ChunkTree.cpp \
+    btrfs/Trees/DirContent.h btrfs/Trees/DirContent.cpp \
+    btrfs/Trees/FilesystemTree.h btrfs/Trees/FilesystemTree.cpp \
+    btrfs/Trees/InternalNode.h btrfs/Trees/InternalNode.cpp \
+    btrfs/Trees/LeadNode.h btrfs/Trees/LeafNode.cpp \
+    btrfs/Trees/SuperBlock.h btrfs/Trees/SuperBlock.cpp \
+    btrfs/Trees/Trees.h \
     zfs/Blkptr.cpp zfs/Blkptr.h \
     zfs/Dnode.cpp zfs/Dnode.h \
     zfs/NVList.cpp zfs/NVList.h \

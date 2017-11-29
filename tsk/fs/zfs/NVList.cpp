@@ -23,7 +23,7 @@ NVList::NVList(TSK_ENDIAN_ENUM endian, uint8_t *data, int nestedLevel)
     index += 8;
 
     if (beginningNV != 1)
-        cout << "Broken NV List!" << endl;
+        throw "Broken NV List!";
 
     while (true) {
         nvLength = read32Bit(endian, data + index);

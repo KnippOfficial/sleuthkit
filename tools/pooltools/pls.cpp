@@ -65,9 +65,12 @@ int main(int argc, char **argv1) {
     }
 
     pool_info = new TSK_POOL_INFO(TSK_LIT_ENDIAN, argv[1]);
-    ZFS_POOL* pool = new ZFS_POOL(pool_info);
+    TSK_POOL* pool = pool_info->createPoolObject();
     cout << *pool << endl;
-    cout << *pool->getUberblockArray() << endl;
+    //cout << *pool->getUberblockArray() << endl;
+
+    delete pool;
+    delete pool_info;
 
     exit(0);
 }

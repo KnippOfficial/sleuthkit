@@ -159,7 +159,7 @@ main(int argc, char **argv1)
 
     if(isPool){
         pool_info = new TSK_POOL_INFO(TSK_LIT_ENDIAN, argv[OPTIND]);
-        TSK_POOL* pool = new ZFS_POOL(pool_info);
+        TSK_POOL* pool = pool_info->createPoolObject();
 
         try {
                 pool->fsstat(filesystem, transaction);

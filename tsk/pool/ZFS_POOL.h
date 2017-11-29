@@ -32,7 +32,7 @@ class ZFS_POOL : public TSK_POOL {
 private:
     vector<ZFS_VDEV*> vdevs;
     vector<uint64_t> availableIDs;
-    uint64_t noAllVdevs;
+    uint64_t no_all_vdevs;
     uint64_t pool_guid;
     string name;
     bool reconstructable;
@@ -52,6 +52,7 @@ public:
     Uberblock* getMostrecentUberblock() const { return uberblock_array->getMostrecent(); }
     UberblockArray* getUberblockArray() const { return uberblock_array;};
     friend std::ostream& operator<<(std::ostream& os, const ZFS_POOL& pool);
+    virtual void print(std::ostream& os) const;
     void fsstat(string dataset = "", int uberblock = -1);
     void fls(string dataset = "", int uberblock = -1);
     void istat(int object_number, string dataset = "", int uberblock = -1);
