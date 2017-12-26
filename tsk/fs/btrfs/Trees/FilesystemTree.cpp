@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <functional>
 #include <vector>
+#include <iterator>
 #include "FilesystemTree.h"
 #include "../Examiners/Functions.h"
 
@@ -289,28 +290,31 @@ namespace btrForensics {
             if(data->compression + data->encryption + data->otherEncoding != 0)
                 return false;
 
-            ofstream ofs(fileName, ofstream::app | ofstream::binary);
-            if(!ofs) return false;
+            //ofstream ofs(fileName, ofstream::app | ofstream::binary);
+            //if(!ofs) return false;
             if(data->type == 0) { //Is inline file.
                 vector<char> dataArr;
                 examiner->pool->readData(data->dataAddress, fileSize, dataArr);
-                ofs.write(dataArr.data(), fileSize);
-                ofs.close();
+                std::copy(dataArr.begin(), dataArr.end(), ostream_iterator<char>(std::cout));
+                //ofs.write(dataArr.data(), fileSize);
+                //ofs.close();
                 return true;
             }
             else {
                 vector<char> dataArr;
                 if(unreadSize > data->numOfBytes) {
                     examiner->pool->readData(data->logicalAddress + data->extentOffset, data->numOfBytes, dataArr);
-                    ofs.write(dataArr.data(), data->numOfBytes);
+                    std::copy(dataArr.begin(), dataArr.end(), ostream_iterator<char>(std::cout));
+                    //ofs.write(dataArr.data(), data->numOfBytes);
                     unreadSize -= data->numOfBytes;
                 }
                 else {
                     examiner->pool->readData(data->logicalAddress + data->extentOffset, unreadSize, dataArr);
-                    ofs.write(dataArr.data(), unreadSize);
+                    std::copy(dataArr.begin(), dataArr.end(), ostream_iterator<char>(std::cout));
+                    //ofs.write(dataArr.data(), unreadSize);
                     unreadSize = 0;
                 }
-                ofs.close();
+                //ofs.close();
             }
         }
         if(unreadSize != 0) {

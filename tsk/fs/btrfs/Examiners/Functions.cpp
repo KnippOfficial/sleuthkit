@@ -152,21 +152,36 @@ namespace btrForensics{
         uint64_t chunkPhysical = chunkData->getOffset(); //Data offset stores physical address.
         uint16_t numStripes = chunkData->getNumStripe();
         uint64_t stripeLength = chunkData->getStripeLength();
+        uint64_t type = chunkData->getType();
+        uint64_t offset = 0;
 
         //printf("input_log %d | chunk_log %d | chunk_phys %d | str_len %d | no_str %d | type %d\n", logicalAddr, chunkLogical,
-        //       chunkPhysical, stripeLength, numStripes, chunkData->getType());
+        //       chunkPhysical, stripeLength, numStripes, type);
 
-        uint64_t relative_position = (uint64_t) floor((logicalAddr - chunkLogical) / stripeLength);
+        //type contains information about RAID0, RAID1 or RAID10 configuration
         uint64_t relative_offset = (logicalAddr - chunkLogical) % stripeLength;
-        uint16_t device = relative_position % numStripes;
-        uint64_t offset = chunkData->getOffset(device) + ((uint64_t) floor((logicalAddr - chunkLogical) / stripeLength / numStripes)) * stripeLength + relative_offset;
+        uint16_t device;
+        if(type & BLOCK_FLAG_RAID0) {
+            uint64_t relative_position = (uint64_t) floor((logicalAddr - chunkLogical) / stripeLength);
+            device = relative_position % numStripes;
+            offset = chunkData->getOffset(device) + ((uint64_t) floor((logicalAddr - chunkLogical) / stripeLength / numStripes)) * stripeLength + relative_offset;
+        } else if(type & BLOCK_FLAG_RAID1){
+            device = 0;
+            offset = chunkData->getOffset(device) + (logicalAddr - chunkLogical);
+        } else if (type & BLOCK_FLAG_RAID10){
+            //TODO: takes only data of first RAID1
+            numStripes = (uint64_t) floor(numStripes/2);
+            uint64_t relative_position = (uint64_t) floor((logicalAddr - chunkLogical) / stripeLength);
+            device = (relative_position % numStripes) * 2; //add +1 to use second RAID1
+            offset = chunkData->getOffset(device) + ((uint64_t) floor((logicalAddr - chunkLogical) / stripeLength / numStripes)) * stripeLength + relative_offset;
+        }
 
         //printf("deviceid %d | phys_addr %d\n", chunkData->getID(device), offset);
 
         //Input logical address should be larger than chunk logical address.
         if(logicalAddr < chunkLogical)
             throw FsDamagedException("Superblock chunk item error. Unable to map logical address to physical address.");
-        
+
         //physicalAddr = logicalAddr - chunkLogical + chunkPhysical;
 
         BTRFSPhyAddr temp;

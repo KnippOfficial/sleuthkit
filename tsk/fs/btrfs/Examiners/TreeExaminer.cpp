@@ -25,11 +25,12 @@ namespace btrForensics {
             const SuperBlock* superBlk)
         :pool(pool), endian(end)
     {
-        initializeRootTree(superBlk);
-
+        //Chunk tree is needed at the very beginning
+        //to convert logical address to physical address.
+        chunkTree = new ChunkTree(superBlk, this);
     }
 
-
+    //TODO: not supported yet
     //! Constructor of tree analyzer, use subvolume instead of default filesystem root.
     //!
     //! \param img Image file.
@@ -87,40 +88,53 @@ namespace btrForensics {
     }
 
     //New init function so that BTFRS_POOL can asap use the chunktree
-    void TreeExaminer::initializeFSTree() {
-        uint64_t defaultId = getDefaultFsId();
+    void TreeExaminer::initializeFSTree(uint64_t id) {
+        //cerr << "DBG: Inititalize FSTree" << endl;
 
-        //cout << "DBG: DefaultID:  " << defaultId << endl;
+        if(id == 0){
+            id = getDefaultFsId();
+        }
 
-        fsTree = new FilesystemTree(rootTree, defaultId, this);
+        //cerr << "DBG: DefaultID:  " << defaultId << endl;
+
+        fsTree = new FilesystemTree(rootTree, id, this);
         fsTreeDefault = fsTree;
 
-        //cout << "DBG: CreatedFSTree " << endl;
+        //cerr << "DBG: CreatedFSTree " << endl;
+    }
+
+    //reinit fs tree to access snapshots/subvolumes
+    void TreeExaminer::reInitializeFSTree(uint64_t id) {
+        delete this->fsTree;
+
+        if(id == 0){
+            id = getDefaultFsId();
+        }
+
+        fsTree = new FilesystemTree(rootTree, id, this);
+        fsTreeDefault = fsTree;
     }
 
 
     //! Initialize root of Root Tree.
     void TreeExaminer::initializeRootTree(const SuperBlock* superBlk)
     {
-        //Chunk tree is needed at the very beginning
-        //to convert logical address to physical address.
-        //cout << "DBG: INITIALIZE ROOT TREE" << endl;
-        chunkTree = new ChunkTree(superBlk, this);
+        //cerr << "DBG: INITIALIZE ROOT TREE" << endl;
 
         uint64_t rootTreelogAddr = superBlk->getRootLogAddr();
-        //cout << "DBG: RootTreeLogAddr: " << rootTreelogAddr << endl;
+        //cerr << "DBG: RootTreeLogAddr: " << rootTreelogAddr << endl;
 
         //Pyhsical address of root of Root Tree obtained here.
         BTRFSPhyAddr rootTreePhyAddr = chunkTree->getPhysicalAddr(rootTreelogAddr);
 
-        //cout << "DBG: RootTreePhysAddr: " << rootTreePhyAddr.offset << endl;
+        //cerr << "DBG: RootTreePhysAddr: " << rootTreePhyAddr.device << " @ " << rootTreePhyAddr.offset << endl;
 
         //Needs to be done here since pool does not yet have a fully initialized treeexaminer (created here)
         vector<char> diskArr;
         pool->readRawData(rootTreePhyAddr.device, rootTreePhyAddr.offset, BtrfsHeader::SIZE_OF_HEADER, diskArr);
         BtrfsHeader* rootHeader = new BtrfsHeader(endian, (uint8_t*)diskArr.data());
 
-        //cout << "DBG: CreatedRootHeader" << endl;
+        //cerr << "DBG: CreatedRootHeader" << endl;
 
         uint64_t itemListStart = rootTreelogAddr + BtrfsHeader::SIZE_OF_HEADER;
         if(rootHeader->isLeafNode())
@@ -128,7 +142,7 @@ namespace btrForensics {
         else
             rootTree = new InternalNode(pool, rootHeader, endian, itemListStart);
 
-        //cout << "DBG: CreatedRootTree " << endl;
+        //cerr << "DBG: CreatedRootTree " << endl;
     }
 
 
@@ -441,6 +455,7 @@ namespace btrForensics {
                 }
                 else {
                     vector<char> headerArr;
+                    cerr << "DBG: reading... " << ptr->getBlkNum() << endl;
                     pool->readData(ptr->getBlkNum(), BtrfsHeader::SIZE_OF_HEADER, headerArr);
                     BtrfsHeader *header = new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr.data());
 

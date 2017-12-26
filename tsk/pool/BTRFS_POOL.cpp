@@ -13,6 +13,7 @@
 
 #include <string.h>
 #include <cmath>
+#include <iomanip>
 #include "BTRFS_POOL.h"
 #include "../../tsk/utils/ReadInt.h"
 #include "../../tsk/utils/Uuid.h"
@@ -22,12 +23,15 @@
 
 using namespace btrForensics;
 
+using namespace std;
+
 BTRFS_POOL::BTRFS_POOL(TSK_POOL_INFO *pool)
         : initialized(false), no_all_devices(0), no_available_devices(0), pool(pool) {
 
     std::vector<char> diskData(SuperBlock::SIZE_OF_SPR_BLK);
     SuperBlock *supblk = nullptr;
     BTRFS_DEVICE *dev = nullptr;
+    examiner = nullptr;
 
     for (auto &it : pool->members) {
         //cout << it.first << endl;
@@ -36,37 +40,24 @@ BTRFS_POOL::BTRFS_POOL(TSK_POOL_INFO *pool)
         supblk = new SuperBlock(TSK_LIT_ENDIAN, (uint8_t *) diskData.data());
 
         if (!initialized) {
-            no_all_devices = supblk->getChunkData().getNumStripe();
+            no_all_devices = supblk->getNumDevices();
             pool_guid = supblk->getDevData().getFSUUID().encode();
-
-            for (int i = 0; i < no_all_devices; i++) {
-                //storing each found btrfs device into devices
-                dev = new BTRFS_DEVICE(supblk->getChunkData().getID(i), supblk->getChunkData().getUUID(i).encode(),
-                                       nullptr, supblk->getChunkData().getOffset(i), false);
-
-                devices.push_back(dev);
-            }
-            initialized = true;
             superblock = new SuperBlock(TSK_LIT_ENDIAN, (uint8_t *) diskData.data());
+            initialized = true;
         }
 
-
         //TODO: check if device is part of pool
-
-        //check if device is available
-        for (auto &it_dev : devices) {
-            if (supblk->getDevData().getUUID().encode() == it_dev->getGUID()) {
-                it_dev->setAvailable(true);
-                it_dev->setImage(it.second);
-                no_available_devices++;
-            }
-        };
-
+        dev = new BTRFS_DEVICE(supblk->getDevData().getID(), supblk->getDevData().getUUID().encode(),
+                               it.second, 0, true);
+        //cerr << "DBG: Added device with id " << dev->getID() << endl;
+        devices.push_back(dev);
+        no_available_devices++;
         delete supblk;
     }
 
     //initialize global treeexaminer for BTRFS_POOL
     //TODO: rootFsId is currently fixed
+    //cout << "DBG: Creating TreeExaminer" << endl;
     uint64_t rootFsId = 0;
     if (rootFsId == 0)
         examiner = new TreeExaminer(this, TSK_LIT_ENDIAN, superblock);
@@ -74,9 +65,8 @@ BTRFS_POOL::BTRFS_POOL(TSK_POOL_INFO *pool)
         examiner = new TreeExaminer(this, TSK_LIT_ENDIAN, superblock, rootFsId);
 
     //cout << "DBG: Created TreeExaminer" << endl;
-
+    examiner->initializeRootTree(superblock);
     examiner->initializeFSTree();
-
 }
 
 
@@ -94,7 +84,7 @@ void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &bu
     buffer.resize(0);
     //TODO: variable stripe_length !!!
     uint64_t stripe_length = 65536;
-    uint64_t num_stripes = (uint64_t ) ceil(size / stripe_length);
+    uint64_t num_stripes = (uint64_t) ceil(size / stripe_length);
 
     uint64_t size_left = size;
     uint64_t size_for_stripe = 0;
@@ -103,9 +93,9 @@ void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &bu
     //printf("input_log %d | chunk_log %d | size %d | str_len %d | num_stripes %d\n", offset, chunk_logical, size,
     //       stripe_length, num_stripes);
 
-    for(int i=0; i<=num_stripes; i++){
+    for (int i = 0; i <= num_stripes; i++) {
         size_for_stripe = stripe_length - ((offset - chunk_logical) % stripe_length);
-        if(size_for_stripe > size_left){
+        if (size_for_stripe > size_left) {
             size_for_stripe = size_left;
         }
         //cout << "DBG: SIZE FOR STRIPE: " << size_for_stripe << endl;
@@ -119,6 +109,7 @@ void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &bu
 
 void BTRFS_POOL::readRawData(int dev_id, uint64_t offset, uint64_t size, vector<char> &buffer) {
     BTRFS_DEVICE *dev = getDeviceByID(dev_id);
+    //cerr << "DBG (readRawData):: Looking for ID " << dev_id << endl;
     if (dev == nullptr) {
         cout << dev_id << endl;
         throw "Device with ID does not exist!";
@@ -127,6 +118,17 @@ void BTRFS_POOL::readRawData(int dev_id, uint64_t offset, uint64_t size, vector<
     buffer.resize(size);
     //cout << dev->getImg()->size << endl;
     tsk_img_read(dev->getImg(), offset, buffer.data(), size);
+}
+
+BTRFSPhyAddr BTRFS_POOL::getPhysicalAddress(uint64_t logical_address) {
+    //TODO: initialized check function for examiner
+    if (examiner == nullptr) {
+        BtrfsKey chunkKey = superblock->getChunkKey();
+        ChunkData chunkData = superblock->getChunkData();
+        return getChunkAddr(logical_address, &chunkKey, &chunkData);
+    } else {
+        return examiner->getPhysicalAddr(logical_address);
+    }
 }
 
 BTRFS_DEVICE *BTRFS_POOL::getDeviceByID(uint64_t id) {
@@ -144,7 +146,6 @@ void BTRFS_POOL::print(std::ostream &os) const {
     for (auto &it : devices) {
         os << "ID: " << it->getID() << (it->getAvailable() ? " [X]" : " [O]") << endl;
         os << "GUID: " << it->getGUID() << endl;
-        os << "Offset: 0x" << hex << it->getOffset() << dec << endl;
         os << endl;
     }
 }
@@ -162,24 +163,101 @@ void BTRFS_POOL::fsstat(string str_dataset, int uberblock) {
     cout << superblock->printSpace() << endl;
     cout << endl;
     cout << "Label: " << superblock->printLabel() << endl;
+
+    vector<const BtrfsItem *> foundRootRefs;
+    examiner->treeTraverse(examiner->rootTree, [&foundRootRefs](const LeafNode *leaf) {
+        filterItems(leaf, ItemType::ROOT_BACKREF, foundRootRefs);
+    });
+
+    if (foundRootRefs.size() == 0) {
+        cout << "\nNo subvolumes or snapshots are found.\n" << endl;
+    }
+
+    cout << "The following subvolumes or snapshots are found:" << endl;
+    for (auto item : foundRootRefs) {
+        const RootRef *ref = static_cast<const RootRef *>(item);
+        cout << dec << setfill(' ') << setw(7);
+        cout << ref->getId() << "   " << ref->getDirName() << '\n';
+    }
 }
 
 void BTRFS_POOL::fls(string str_dataset, int uberblock) {
-    uint64_t targetId(examiner->fsTree->rootDirId);
-    /*if(argc -1 > optind) {
-        stringstream ss;
-        ss << argv[optind+1];
-        ss >> targetId;
-    }*/
+    uint64_t fsTreeID = 0;
+    if (str_dataset != "") {
+        vector<const BtrfsItem *> foundRootRefs;
+        examiner->treeTraverse(examiner->rootTree, [&foundRootRefs](const LeafNode *leaf) {
+            filterItems(leaf, ItemType::ROOT_BACKREF, foundRootRefs);
+        });
 
+        for (auto item : foundRootRefs) {
+            const RootRef *ref = static_cast<const RootRef *>(item);
+            if (ref->getDirName() == str_dataset) {
+                fsTreeID = ref->getId();
+            }
+        }
+
+        if (fsTreeID == 0) {
+            cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
+        } else {
+            examiner->reInitializeFSTree(fsTreeID);
+        }
+    }
+
+    uint64_t targetId = examiner->fsTree->rootDirId;
     examiner->fsTree->listDirItemsById(targetId, true, true, true, 0, cout);
 }
 
 
-void BTRFS_POOL::istat(int object_number, string dataset, int uberblock) {
+void BTRFS_POOL::istat(int object_number, string str_dataset, int uberblock) {
+    uint64_t fsTreeID = 0;
+    if (str_dataset != "") {
+        vector<const BtrfsItem *> foundRootRefs;
+        examiner->treeTraverse(examiner->rootTree, [&foundRootRefs](const LeafNode *leaf) {
+            filterItems(leaf, ItemType::ROOT_BACKREF, foundRootRefs);
+        });
+
+        for (auto item : foundRootRefs) {
+            const RootRef *ref = static_cast<const RootRef *>(item);
+            if (ref->getDirName() == str_dataset) {
+                fsTreeID = ref->getId();
+            }
+        }
+
+        if (fsTreeID == 0) {
+            cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
+        } else {
+            examiner->reInitializeFSTree(fsTreeID);
+        }
+    }
+
+    uint64_t targetId = examiner->fsTree->rootDirId;
+
     examiner->fsTree->showInodeInfo(object_number, cout);
 }
 
 void BTRFS_POOL::icat(int object_number, string str_dataset, int uberblock) {
+    uint64_t fsTreeID = 0;
+    if (str_dataset != "") {
+        vector<const BtrfsItem *> foundRootRefs;
+        examiner->treeTraverse(examiner->rootTree, [&foundRootRefs](const LeafNode *leaf) {
+            filterItems(leaf, ItemType::ROOT_BACKREF, foundRootRefs);
+        });
+
+        for (auto item : foundRootRefs) {
+            const RootRef *ref = static_cast<const RootRef *>(item);
+            if (ref->getDirName() == str_dataset) {
+                fsTreeID = ref->getId();
+            }
+        }
+
+        if (fsTreeID == 0) {
+            cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
+        } else {
+            examiner->reInitializeFSTree(fsTreeID);
+        }
+    }
+
+    uint64_t targetId = examiner->fsTree->rootDirId;
+
     examiner->fsTree->readFile(object_number);
 }

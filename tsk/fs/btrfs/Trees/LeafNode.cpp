@@ -28,10 +28,7 @@ namespace btrForensics{
         for(uint32_t i=0; i<itemNum; ++i){
             vector<char> diskArr;
 
-            //TODO: create function in pool for that
-            BtrfsKey chunkKey = pool->getSuperblock()->getChunkKey();
-            ChunkData chunkData = pool->getSuperblock()->getChunkData();
-            BTRFSPhyAddr temp = getChunkAddr(startOffset + itemOffset, &chunkKey, &chunkData);
+            BTRFSPhyAddr temp = pool->getPhysicalAddress(startOffset + itemOffset);
             pool->readRawData(temp.device, temp.offset, ItemHead::SIZE_OF_ITEM_HEAD, diskArr);
 
             ItemHead *itemHead = new ItemHead(endian, (uint8_t*)diskArr.data(),
@@ -40,7 +37,7 @@ namespace btrForensics{
             BtrfsItem *newItem = nullptr;
             vector<char> itmArr;
             uint64_t dataOffset = startOffset + itemHead->getDataOffset();
-            temp = getChunkAddr(dataOffset, &chunkKey, &chunkData);
+            temp = pool->getPhysicalAddress(dataOffset);
             pool->readRawData(temp.device, temp.offset, itemHead->getDataSize(), itmArr);
 
             switch(itemHead->key.itemType){

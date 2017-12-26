@@ -35,7 +35,8 @@ namespace btrForensics {
         BTRFSPhyAddr getPhysicalAddr(uint64_t logicalAddr) const;
         uint64_t getChunkLogicalAddr(uint64_t logicalAddr);
         void initializeRootTree(const SuperBlock* superBlk);
-        void initializeFSTree();
+        void initializeFSTree(uint64_t id = 0);
+        void reInitializeFSTree(uint64_t id = 0);
         uint64_t getDefaultFsId() const;
 
         const void navigateNodes(const BtrfsNode* root, std::ostream& os, std::istream& is) const;

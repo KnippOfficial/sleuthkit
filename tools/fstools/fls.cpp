@@ -241,7 +241,7 @@ main(int argc, char **argv1)
             }
         }
         catch (...) {
-            cerr << "fls failed. Used an older uberblock?" << endl;
+            cerr << "fls failed. Used an older transaction number?" << endl;
         }
 
     } else {

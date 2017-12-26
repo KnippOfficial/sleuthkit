@@ -16,8 +16,9 @@ namespace btrForensics {
     ChunkTree::ChunkTree(const SuperBlock* superBlk, const TreeExaminer* treeExaminer)
             :examiner(treeExaminer)
     {
+        //cerr << "DBG: Creating ChunkTree" << endl;
         BTRFSPhyAddr chunkTreePhyAddr = superBlk->getChunkPhyAddr();
-
+        //cerr << "DBG: device " << chunkTreePhyAddr.device << " @ " << chunkTreePhyAddr.offset << endl;
         vector<char> diskArr;
         examiner->pool->readRawData(chunkTreePhyAddr.device, chunkTreePhyAddr.offset, BtrfsHeader::SIZE_OF_HEADER, diskArr);
         BtrfsHeader *chunkHeader = new BtrfsHeader(examiner->endian, (uint8_t*)diskArr.data());
@@ -29,7 +30,7 @@ namespace btrForensics {
         if(chunkHeader->isLeafNode())
             chunkRoot = new LeafNode(examiner->pool, chunkHeader, examiner->endian, itemListStart);
         else
-            chunkRoot = new InternalNode(examiner->pool, chunkHeader, TSK_LIT_ENDIAN, itemListStart);
+            chunkRoot = new InternalNode(examiner->pool, chunkHeader, examiner->endian, itemListStart);
 
     }
 

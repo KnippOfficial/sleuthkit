@@ -36,7 +36,6 @@ private:
     //TODO: maybe change type back to UUID
     string pool_guid;
     btrForensics::SuperBlock* superblock;
-    btrForensics::TreeExaminer* examiner;
 
 public:
     BTRFS_POOL(TSK_POOL_INFO *pool);
@@ -50,6 +49,11 @@ public:
     void fls(string dataset = "", int uberblock = -1);
     void istat(int object_number, string dataset = "", int uberblock = -1);
     void icat(int object_number, string dataset = "", int uberblock = -1);
+    //TODO: wrap function around that
+    btrForensics::TreeExaminer* examiner;
+
+    BTRFSPhyAddr getPhysicalAddress(uint64_t);
+
 
     string getPoolName();
 
