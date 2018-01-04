@@ -174,6 +174,9 @@ namespace btrForensics{
             uint64_t relative_position = (uint64_t) floor((logicalAddr - chunkLogical) / stripeLength);
             device = (relative_position % numStripes) * 2; //add +1 to use second RAID1
             offset = chunkData->getOffset(device) + ((uint64_t) floor((logicalAddr - chunkLogical) / stripeLength / numStripes)) * stripeLength + relative_offset;
+        } else {
+            device = 0;
+            offset = chunkData->getOffset(device) + (logicalAddr - chunkLogical);
         }
 
         //printf("deviceid %d | phys_addr %d\n", chunkData->getID(device), offset);

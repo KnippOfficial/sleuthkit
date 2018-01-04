@@ -346,14 +346,29 @@ namespace btrForensics {
             return false;
         const InodeRef* inodeRef = static_cast<const InodeRef*>(foundItem);
         string name = inodeRef->getDirName();
-
+/*
         os << dec;
         os << "Inode number: " << id << endl;
         os << "Size: " << size << endl;
         os << "Name: " << name << endl;
 
         os << "\nDirectory Entry Times(local);" << endl;
-        os << inode->printTime() << endl;
+        os << inode->printTime() << endl;*/
+
+        vector<const BtrfsItem*> foundExtents;
+        examiner->treeSearchById(fileTreeRoot, id,
+                                 [&foundExtents](const LeafNode* leaf, uint64_t targetId)
+                                 { return filterItems(leaf, targetId, ItemType::EXTENT_DATA, foundExtents); });
+
+        //TODO: get access to key for correct offset in file?
+        uint64_t file_offset = 0;
+
+        for(auto extent : foundExtents) {
+            const ExtentData *data = static_cast<const ExtentData *>(extent);
+            //cout << setw(10) << file_offset << " -" << setw(10) << (file_offset + data->extentSize) << " at logical offset 0x" << hex << (data->logicalAddress + data->extentOffset) << dec << endl;
+            //file_offset += data->extentSize;
+            cout << data->extentSize << endl;
+        }
         
         return true;
     }

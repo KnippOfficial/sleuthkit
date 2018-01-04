@@ -34,7 +34,7 @@ BTRFS_POOL::BTRFS_POOL(TSK_POOL_INFO *pool)
     examiner = nullptr;
 
     for (auto &it : pool->members) {
-        //cout << it.first << endl;
+        //cerr << "DBG: " << it.first << endl;
         tsk_img_read(it.second, SuperBlock::ADDR_OF_SPR_BLK, diskData.data(), SuperBlock::SIZE_OF_SPR_BLK);
         //TODO: Try, catch
         supblk = new SuperBlock(TSK_LIT_ENDIAN, (uint8_t *) diskData.data());
@@ -55,9 +55,10 @@ BTRFS_POOL::BTRFS_POOL(TSK_POOL_INFO *pool)
         delete supblk;
     }
 
+
     //initialize global treeexaminer for BTRFS_POOL
     //TODO: rootFsId is currently fixed
-    //cout << "DBG: Creating TreeExaminer" << endl;
+    //cerr << "DBG: Creating TreeExaminer" << endl;
     uint64_t rootFsId = 0;
     if (rootFsId == 0)
         examiner = new TreeExaminer(this, TSK_LIT_ENDIAN, superblock);
