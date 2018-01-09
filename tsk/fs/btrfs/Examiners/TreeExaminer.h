@@ -32,7 +32,7 @@ namespace btrForensics {
         TreeExaminer(BTRFS_POOL*, TSK_ENDIAN_ENUM, const SuperBlock*, uint64_t fsRootId);
         ~TreeExaminer();
 
-        BTRFSPhyAddr getPhysicalAddr(uint64_t logicalAddr) const;
+        vector<BTRFSPhyAddr> getPhysicalAddr(uint64_t logicalAddr) const;
         uint64_t getChunkLogicalAddr(uint64_t logicalAddr);
         void initializeRootTree(const SuperBlock* superBlk);
         void initializeFSTree(uint64_t id = 0);

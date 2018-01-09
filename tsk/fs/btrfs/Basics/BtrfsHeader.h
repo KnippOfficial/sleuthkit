@@ -39,6 +39,7 @@ namespace btrForensics{
 
         //! Return true if the header indicates it is a leaf node.
         const bool isLeafNode() const { return level == 0; }
+        const uint64_t getGeneration() const {return generation;};
         
         friend std::ostream &operator<<(
             std::ostream &os, const BtrfsHeader &header);

@@ -77,7 +77,7 @@ namespace btrForensics {
     //! \param logicalAddr 64-bit logial address.
     //! \return 64-bit physical address.
     //!
-    BTRFSPhyAddr TreeExaminer::getPhysicalAddr(uint64_t logicalAddr) const
+    vector<BTRFSPhyAddr> TreeExaminer::getPhysicalAddr(uint64_t logicalAddr) const
     {
         return chunkTree->getPhysicalAddr(logicalAddr);
     }
@@ -95,7 +95,7 @@ namespace btrForensics {
             id = getDefaultFsId();
         }
 
-        //cerr << "DBG: DefaultID:  " << defaultId << endl;
+        //cerr << "DBG: DefaultID:  " << id << endl;
 
         fsTree = new FilesystemTree(rootTree, id, this);
         fsTreeDefault = fsTree;
@@ -122,17 +122,15 @@ namespace btrForensics {
         //cerr << "DBG: INITIALIZE ROOT TREE" << endl;
 
         uint64_t rootTreelogAddr = superBlk->getRootLogAddr();
+        //uint64_t rootTreelogAddr = 40714240;
         //cerr << "DBG: RootTreeLogAddr: " << rootTreelogAddr << endl;
 
-        //Pyhsical address of root of Root Tree obtained here.
-        BTRFSPhyAddr rootTreePhyAddr = chunkTree->getPhysicalAddr(rootTreelogAddr);
-
-        //cerr << "DBG: RootTreePhysAddr: " << rootTreePhyAddr.device << " @ " << rootTreePhyAddr.offset << endl;
-
-        //Needs to be done here since pool does not yet have a fully initialized treeexaminer (created here)
         vector<char> diskArr;
-        pool->readRawData(rootTreePhyAddr.device, rootTreePhyAddr.offset, BtrfsHeader::SIZE_OF_HEADER, diskArr);
+        pool->readData(rootTreelogAddr, BtrfsHeader::SIZE_OF_HEADER, diskArr);
         BtrfsHeader* rootHeader = new BtrfsHeader(endian, (uint8_t*)diskArr.data());
+
+        cerr << "using rootTree at logical address: "  << rootTreelogAddr << " (transaction "
+             << rootHeader->getGeneration() << ")" << endl << endl;
 
         //cerr << "DBG: CreatedRootHeader" << endl;
 
@@ -154,6 +152,9 @@ namespace btrForensics {
         uint64_t defaultDirId(6);
 
         uint64_t defaultId(0);
+
+        //cerr << "DBG: getDefaultFsId()" << endl;
+
         const BtrfsItem* foundItem;
         if(treeSearchById(rootTree, defaultDirId,
                 [&foundItem](const LeafNode* leaf, uint64_t targetId)
@@ -253,8 +254,9 @@ namespace btrForensics {
             }
             if(nodeExisted) continue; //The child node has already been built.
 
+            //TODO: Support for vector addr
             offset = nodeAddrs[inputId];
-            BTRFSPhyAddr physicalAddr = getPhysicalAddr(offset);
+            BTRFSPhyAddr physicalAddr = getPhysicalAddr(offset).at(0);
 
             char *headerArr = new char[BtrfsHeader::SIZE_OF_HEADER]();
             tsk_img_read(image, physicalAddr.offset, headerArr, BtrfsHeader::SIZE_OF_HEADER);
@@ -348,7 +350,8 @@ namespace btrForensics {
                     newNode = ptr->childNode;
                 }
                 else {
-                    BTRFSPhyAddr physicalAddr = getPhysicalAddr(ptr->getBlkNum());
+                    //TODO: support for vector
+                    BTRFSPhyAddr physicalAddr = getPhysicalAddr(ptr->getBlkNum()).at(0);
                     char *headerArr = new char[BtrfsHeader::SIZE_OF_HEADER]();
                     tsk_img_read(image, physicalAddr.offset, headerArr, BtrfsHeader::SIZE_OF_HEADER);
                     BtrfsHeader *header = new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr);
@@ -396,7 +399,8 @@ namespace btrForensics {
                     newNode = ptr->childNode;
                 }
                 else {
-                    BTRFSPhyAddr physicalAddr = getPhysicalAddr(ptr->getBlkNum());
+                    //TODO: support for vector
+                    BTRFSPhyAddr physicalAddr = getPhysicalAddr(ptr->getBlkNum()).at(0);
                     char *headerArr = new char[BtrfsHeader::SIZE_OF_HEADER]();
                     tsk_img_read(image, physicalAddr.offset, headerArr, BtrfsHeader::SIZE_OF_HEADER);
                     BtrfsHeader *header = new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr);
@@ -433,6 +437,9 @@ namespace btrForensics {
     bool TreeExaminer::treeSearchById(const BtrfsNode *node, uint64_t targetId,
             function<bool(const LeafNode*, uint64_t)> searchFunc) const
     {
+        //cerr << "DBG: treeSearchById" << endl;
+        //cerr << node->info() << endl;
+
         if(node->nodeHeader->isLeafNode()){
             const LeafNode *leaf = static_cast<const LeafNode*>(node);
             return searchFunc(leaf, targetId);
@@ -455,7 +462,7 @@ namespace btrForensics {
                 }
                 else {
                     vector<char> headerArr;
-                    cerr << "DBG: reading... " << ptr->getBlkNum() << endl;
+                    //cerr << "DBG: reading... " << ptr->getBlkNum() << endl;
                     pool->readData(ptr->getBlkNum(), BtrfsHeader::SIZE_OF_HEADER, headerArr);
                     BtrfsHeader *header = new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr.data());
 

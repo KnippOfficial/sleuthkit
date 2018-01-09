@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <string>
+#include <vector>
 #include <tsk/libtsk.h>
 #include "../Basics/Basics.h"
 #include "SuperBlock.h"
@@ -26,7 +27,7 @@ namespace btrForensics {
         ChunkTree(const SuperBlock* superBlk, const TreeExaminer* treeExaminer);
         ~ChunkTree();
         
-        BTRFSPhyAddr getPhysicalAddr(uint64_t logicalAddr);
+        std::vector<BTRFSPhyAddr> getPhysicalAddr(uint64_t logicalAddr);
         uint64_t getChunkLogical(uint64_t logicalAddr);
 
     };

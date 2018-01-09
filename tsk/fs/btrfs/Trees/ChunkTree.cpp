@@ -17,10 +17,13 @@ namespace btrForensics {
             :examiner(treeExaminer)
     {
         //cerr << "DBG: Creating ChunkTree" << endl;
-        BTRFSPhyAddr chunkTreePhyAddr = superBlk->getChunkPhyAddr();
-        //cerr << "DBG: device " << chunkTreePhyAddr.device << " @ " << chunkTreePhyAddr.offset << endl;
+        //TODO: use vectors and readData instead of rawdata
+        /*BTRFSPhyAddr chunkTreePhyAddr = superBlk->getChunkPhyAddr().at(0);
+        cerr << "DBG: device " << chunkTreePhyAddr.device << " @ " << chunkTreePhyAddr.offset << endl;
+        examiner->pool->readRawData(chunkTreePhyAddr.device, chunkTreePhyAddr.offset, BtrfsHeader::SIZE_OF_HEADER, diskArr);*/
+
         vector<char> diskArr;
-        examiner->pool->readRawData(chunkTreePhyAddr.device, chunkTreePhyAddr.offset, BtrfsHeader::SIZE_OF_HEADER, diskArr);
+        examiner->pool->readData(superBlk->getChunkLogAddr(), BtrfsHeader::SIZE_OF_HEADER, diskArr);
         BtrfsHeader *chunkHeader = new BtrfsHeader(examiner->endian, (uint8_t*)diskArr.data());
 
         uint64_t itemListStart = superBlk->getChunkLogAddr() + BtrfsHeader::SIZE_OF_HEADER;
@@ -48,9 +51,9 @@ namespace btrForensics {
     //! \param logicalAddr 64-bit logial address.
     //! \return 64-bit physical address.
     //!
-    BTRFSPhyAddr ChunkTree::getPhysicalAddr(uint64_t logicalAddr)
+    vector<BTRFSPhyAddr> ChunkTree::getPhysicalAddr(uint64_t logicalAddr)
     {
-        BTRFSPhyAddr physAddr;
+        vector<BTRFSPhyAddr> physAddr;
 
         //std::cout << chunkRoot->info() << std::endl;
         examiner->treeSearch(chunkRoot,

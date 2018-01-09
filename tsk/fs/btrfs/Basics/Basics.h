@@ -25,7 +25,7 @@
 
 #include "UnknownItem.h"
 
-typedef struct BTRFSPhysAddr{
+typedef struct BTRFSPhyAddr{
     uint64_t offset;
     uint16_t device;
 } BTRFSPhyAddr;

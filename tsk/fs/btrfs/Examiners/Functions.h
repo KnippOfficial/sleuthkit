@@ -31,9 +31,9 @@ namespace btrForensics {
 
     void filterItems(const LeafNode *, ItemType, vector<const BtrfsItem *> &);
 
-    bool getPhyAddr(const LeafNode *leaf, uint64_t targetLogAddr, BTRFSPhyAddr &physAddr);
+    bool getPhyAddr(const LeafNode *leaf, uint64_t targetLogAddr, vector<BTRFSPhyAddr>& physAddr);
 
-    BTRFSPhyAddr getChunkAddr(uint64_t logicalAddr,
+    vector<BTRFSPhyAddr> getChunkAddr(uint64_t logicalAddr,
                               const BtrfsKey *key, const ChunkData *chunkData);
 
     uint64_t getChunkLog(const LeafNode *, uint64_t, uint64_t &);

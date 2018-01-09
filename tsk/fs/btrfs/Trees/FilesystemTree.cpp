@@ -48,7 +48,7 @@ namespace btrForensics {
         const BtrfsHeader *fileTreeHeader =
             new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr.data());
 
-        //cout << "DBG: Created Filesystem Tree Header" << endl;
+        //cerr << "DBG: Created Filesystem Tree Header" << endl;
 
         uint64_t itemOffset = offset + BtrfsHeader::SIZE_OF_HEADER;
 
@@ -59,7 +59,7 @@ namespace btrForensics {
             fileTreeRoot = new InternalNode(examiner->pool, fileTreeHeader, examiner->endian, itemOffset);
         }
 
-        //cout << "DBG: Created Filesystem Tree Root Node" << endl;
+        //cerr << "DBG: Created Filesystem Tree Root Node" << endl;
     }
 
 
@@ -283,7 +283,7 @@ namespace btrForensics {
             return false;
             
         uint64_t unreadSize = fileSize;
-        //cout << "DBG: FILE SIZE: " << unreadSize << endl;
+        //cerr << "DBG: FILE SIZE: " << unreadSize << endl;
         BTRFSPhyAddr phyAddr;
         for(auto extent : foundExtents) {
             const ExtentData* data = static_cast<const ExtentData*>(extent);
@@ -346,14 +346,14 @@ namespace btrForensics {
             return false;
         const InodeRef* inodeRef = static_cast<const InodeRef*>(foundItem);
         string name = inodeRef->getDirName();
-/*
+
         os << dec;
         os << "Inode number: " << id << endl;
         os << "Size: " << size << endl;
         os << "Name: " << name << endl;
 
         os << "\nDirectory Entry Times(local);" << endl;
-        os << inode->printTime() << endl;*/
+        os << inode->printTime() << endl;
 
         vector<const BtrfsItem*> foundExtents;
         examiner->treeSearchById(fileTreeRoot, id,
@@ -363,12 +363,12 @@ namespace btrForensics {
         //TODO: get access to key for correct offset in file?
         uint64_t file_offset = 0;
 
-        for(auto extent : foundExtents) {
+        /*for(auto extent : foundExtents) {
             const ExtentData *data = static_cast<const ExtentData *>(extent);
             //cout << setw(10) << file_offset << " -" << setw(10) << (file_offset + data->extentSize) << " at logical offset 0x" << hex << (data->logicalAddress + data->extentOffset) << dec << endl;
             //file_offset += data->extentSize;
             cout << data->extentSize << endl;
-        }
+        }*/
         
         return true;
     }

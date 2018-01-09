@@ -24,12 +24,16 @@ namespace btrForensics{
         uint64_t itemOffset(0);
         uint32_t itemNum = header -> getNumOfItems();
 
+        //cerr << "DBG: Creating LeafNode" << endl;
+
+
         //TODO: can items (metadata in general) span across multiple stripes and thus multiple disks?!
         for(uint32_t i=0; i<itemNum; ++i){
             vector<char> diskArr;
+            /*BTRFSPhyAddr temp = pool->getPhysicalAddress(startOffset + itemOffset);
+            pool->readRawData(temp.device, temp.offset, ItemHead::SIZE_OF_ITEM_HEAD, diskArr);*/
 
-            BTRFSPhyAddr temp = pool->getPhysicalAddress(startOffset + itemOffset);
-            pool->readRawData(temp.device, temp.offset, ItemHead::SIZE_OF_ITEM_HEAD, diskArr);
+            pool->readData(startOffset + itemOffset, ItemHead::SIZE_OF_ITEM_HEAD, diskArr);
 
             ItemHead *itemHead = new ItemHead(endian, (uint8_t*)diskArr.data(),
                                         startOffset, itemOffset);
@@ -37,8 +41,11 @@ namespace btrForensics{
             BtrfsItem *newItem = nullptr;
             vector<char> itmArr;
             uint64_t dataOffset = startOffset + itemHead->getDataOffset();
-            temp = pool->getPhysicalAddress(dataOffset);
-            pool->readRawData(temp.device, temp.offset, itemHead->getDataSize(), itmArr);
+
+            /*temp = pool->getPhysicalAddress(dataOffset);
+            pool->readRawData(temp.device, temp.offset, itemHead->getDataSize(), itmArr);*/
+
+            pool->readData(dataOffset, itemHead->getDataSize(), itmArr);
 
             switch(itemHead->key.itemType){
                 case ItemType::INODE_ITEM:

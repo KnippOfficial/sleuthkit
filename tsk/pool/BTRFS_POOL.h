@@ -40,7 +40,7 @@ private:
 public:
     BTRFS_POOL(TSK_POOL_INFO *pool);
     ~BTRFS_POOL();
-    void readData(uint64_t, uint64_t, vector<char>&);
+    void readData(uint64_t, uint64_t, vector<char>&, bool = true);
     void readRawData(int dev, uint64_t offset, uint64_t size, vector<char>& buffer);
     virtual void print(std::ostream& os) const;
     BTRFS_DEVICE* getDeviceByID(uint64_t);
@@ -52,7 +52,8 @@ public:
     //TODO: wrap function around that
     btrForensics::TreeExaminer* examiner;
 
-    BTRFSPhyAddr getPhysicalAddress(uint64_t);
+    vector<BTRFSPhyAddr> getPhysicalAddress(uint64_t);
+    uint64_t getChunkLogicalAddr(uint64_t);
 
 
     string getPoolName();

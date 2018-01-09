@@ -65,7 +65,7 @@ BTRFS_POOL::BTRFS_POOL(TSK_POOL_INFO *pool)
     else
         examiner = new TreeExaminer(this, TSK_LIT_ENDIAN, superblock, rootFsId);
 
-    //cout << "DBG: Created TreeExaminer" << endl;
+    //cerr << "DBG: Created TreeExaminer" << endl;
     examiner->initializeRootTree(superblock);
     examiner->initializeFSTree();
 }
@@ -78,30 +78,46 @@ BTRFS_POOL::~BTRFS_POOL() {
     delete superblock;
 }
 
-void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &buffer) {
-    BTRFSPhyAddr physicalAddr;
+void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &buffer, bool fillWithZeros) {
+    vector<BTRFSPhyAddr> physicalAddr;
     uint64_t offset = logical_addr;
     vector<char> stripeData;
     buffer.resize(0);
     //TODO: variable stripe_length !!!
     uint64_t stripe_length = 65536;
     uint64_t num_stripes = (uint64_t) ceil(size / stripe_length);
-
     uint64_t size_left = size;
     uint64_t size_for_stripe = 0;
-    uint64_t chunk_logical = examiner->getChunkLogicalAddr(logical_addr);
+    uint64_t chunk_logical = this->getChunkLogicalAddr(logical_addr);
 
     //printf("input_log %d | chunk_log %d | size %d | str_len %d | num_stripes %d\n", offset, chunk_logical, size,
     //       stripe_length, num_stripes);
 
-    for (int i = 0; i <= num_stripes; i++) {
+    bool read;
+    while(size_left > 0){
+        read = false;
         size_for_stripe = stripe_length - ((offset - chunk_logical) % stripe_length);
         if (size_for_stripe > size_left) {
             size_for_stripe = size_left;
         }
-        //cout << "DBG: SIZE FOR STRIPE: " << size_for_stripe << endl;
-        physicalAddr = examiner->getPhysicalAddr(offset);
-        readRawData(physicalAddr.device, physicalAddr.offset, size_for_stripe, stripeData);
+        //cerr << "DBG: SIZE FOR STRIPE: " << size_for_stripe << "\t SIZE LEFT: " << size_left << endl;
+
+        physicalAddr = this->getPhysicalAddress(offset);
+        //check if any of these addresses is available
+        stripeData.resize(size_for_stripe);
+        for (auto &it : physicalAddr) {
+            if(getDeviceByID(it.device) != nullptr){
+                //cerr << "DBG: Found data on device " << it.device << " @ " << it.offset << endl;
+                readRawData(it.device, it.offset, size_for_stripe, stripeData);
+                read = true;
+                break;
+            }
+        }
+
+        if(!read && fillWithZeros){
+            std::fill(stripeData.begin(), stripeData.end(), 0);
+        }
+
         buffer.insert(buffer.end(), stripeData.data(), stripeData.data() + size_for_stripe);
         size_left -= size_for_stripe;
         offset += size_for_stripe;
@@ -110,18 +126,27 @@ void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &bu
 
 void BTRFS_POOL::readRawData(int dev_id, uint64_t offset, uint64_t size, vector<char> &buffer) {
     BTRFS_DEVICE *dev = getDeviceByID(dev_id);
-    //cerr << "DBG (readRawData):: Looking for ID " << dev_id << endl;
-    if (dev == nullptr) {
-        cout << dev_id << endl;
-        throw "Device with ID does not exist!";
+    if (dev == nullptr ) {
+        cerr << "Cannot find device with ID << " << dev_id << endl;
+        throw "Device with ID does not exist in this pool!";
     }
-    //cout << dev->getID() << " | " << dev->getGUID() << endl;
     buffer.resize(size);
-    //cout << dev->getImg()->size << endl;
     tsk_img_read(dev->getImg(), offset, buffer.data(), size);
 }
 
-BTRFSPhyAddr BTRFS_POOL::getPhysicalAddress(uint64_t logical_address) {
+uint64_t BTRFS_POOL::getChunkLogicalAddr(uint64_t logical_addr){
+    if (examiner == nullptr) {
+        //chunk tree is not yet ready, so returning the logical addr. of the system chunk from superblock
+        //TODO: is there only one system chunk?
+        BtrfsKey chunkKey = superblock->getChunkKey();
+        return chunkKey.offset;
+    } else {
+        examiner->getChunkLogicalAddr(logical_addr);
+    }
+}
+
+
+vector<BTRFSPhyAddr> BTRFS_POOL::getPhysicalAddress(uint64_t logical_address) {
     //TODO: initialized check function for examiner
     if (examiner == nullptr) {
         BtrfsKey chunkKey = superblock->getChunkKey();

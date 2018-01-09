@@ -101,7 +101,7 @@ namespace btrForensics{
     //! \return Return true when the address is acquired.
     //!
     bool getPhyAddr(const LeafNode* leaf, uint64_t targetLogAddr,
-           BTRFSPhyAddr& physAddr)
+           vector<BTRFSPhyAddr>& physAddr)
     {
         const BtrfsItem* target(nullptr);
 
@@ -111,7 +111,7 @@ namespace btrForensics{
                 continue;
             //Chunk logical address should be just smaller than or equal to
             //target logical address.
-            //In other words, find the chunk with logcial address that is the
+            //In other words, find the chunk with logical address that is the
             //largest one but smaller or equal to target logical address.
             if(item->itemHead->key.offset <= targetLogAddr)
                 target = item;
@@ -144,9 +144,10 @@ namespace btrForensics{
     //!
     //! \return Mapped physical address. 0 if not valid.
     //!
-    BTRFSPhyAddr getChunkAddr(uint64_t logicalAddr,
+    vector<BTRFSPhyAddr> getChunkAddr(uint64_t logicalAddr,
             const BtrfsKey* key, const ChunkData* chunkData)
     {
+        vector<BTRFSPhyAddr> addresses;
         uint64_t physicalAddr;
         uint64_t chunkLogical = key->offset; //Key offset stores logical address.
         uint64_t chunkPhysical = chunkData->getOffset(); //Data offset stores physical address.
@@ -165,18 +166,39 @@ namespace btrForensics{
             uint64_t relative_position = (uint64_t) floor((logicalAddr - chunkLogical) / stripeLength);
             device = relative_position % numStripes;
             offset = chunkData->getOffset(device) + ((uint64_t) floor((logicalAddr - chunkLogical) / stripeLength / numStripes)) * stripeLength + relative_offset;
+            BTRFSPhyAddr temp;
+            temp.offset = offset;
+            temp.device = chunkData->getID(device);
+            addresses.push_back(temp);
         } else if(type & BLOCK_FLAG_RAID1){
-            device = 0;
-            offset = chunkData->getOffset(device) + (logicalAddr - chunkLogical);
+            for(int i=0; i<numStripes; i++){
+                BTRFSPhyAddr temp;
+                temp.offset = chunkData->getOffset(i) + (logicalAddr - chunkLogical);
+                temp.device = chunkData->getID(i);
+                addresses.push_back(temp);
+            }
         } else if (type & BLOCK_FLAG_RAID10){
             //TODO: takes only data of first RAID1
             numStripes = (uint64_t) floor(numStripes/2);
-            uint64_t relative_position = (uint64_t) floor((logicalAddr - chunkLogical) / stripeLength);
-            device = (relative_position % numStripes) * 2; //add +1 to use second RAID1
-            offset = chunkData->getOffset(device) + ((uint64_t) floor((logicalAddr - chunkLogical) / stripeLength / numStripes)) * stripeLength + relative_offset;
+            for(int i=0; i<2; i++) {
+                uint64_t relative_position = (uint64_t) floor((logicalAddr - chunkLogical) / stripeLength);
+                device = (relative_position % numStripes) * 2 + i; //add +1 to use second RAID1
+                offset = chunkData->getOffset(device) +
+                         ((uint64_t) floor((logicalAddr - chunkLogical) / stripeLength / numStripes)) * stripeLength +
+                         relative_offset;
+
+                BTRFSPhyAddr temp;
+                temp.offset = offset;
+                temp.device = chunkData->getID(device);
+                addresses.push_back(temp);
+            }
         } else {
             device = 0;
             offset = chunkData->getOffset(device) + (logicalAddr - chunkLogical);
+            BTRFSPhyAddr temp;
+            temp.offset = offset;
+            temp.device = chunkData->getID(device);
+            addresses.push_back(temp);
         }
 
         //printf("deviceid %d | phys_addr %d\n", chunkData->getID(device), offset);
@@ -187,11 +209,7 @@ namespace btrForensics{
 
         //physicalAddr = logicalAddr - chunkLogical + chunkPhysical;
 
-        BTRFSPhyAddr temp;
-        temp.offset = offset;
-        temp.device = chunkData->getID(device);
-
-        return temp;
+        return addresses;
     }
 
     //TODO: shorten function

@@ -25,11 +25,13 @@ namespace btrForensics{
         uint64_t itemOffset(0);
         uint32_t itemNum = header->getNumOfItems();
 
+        //cerr << "DBG: Creating InternalNode" << endl;
+
         for(uint32_t i=0; i<itemNum; ++i){
-            BtrfsKey chunkKey = pool->getSuperblock()->getChunkKey();
-            ChunkData chunkData = pool->getSuperblock()->getChunkData();
-            physAddr = getChunkAddr(startOffset + itemOffset, &chunkKey, &chunkData);
-            pool->readRawData(physAddr.device, physAddr.offset, KeyPtr::SIZE_OF_KEY_PTR, diskArr);
+            /*physAddr = getChunkAddr(startOffset + itemOffset, &chunkKey, &chunkData).at(0);
+            pool->readRawData(physAddr.device, physAddr.offset, KeyPtr::SIZE_OF_KEY_PTR, diskArr);*/
+
+            pool->readData(startOffset + itemOffset, KeyPtr::SIZE_OF_KEY_PTR, diskArr);
 
             keyPointers.push_back(new KeyPtr(endian, (uint8_t*)diskArr.data()));
 

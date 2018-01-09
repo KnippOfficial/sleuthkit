@@ -113,7 +113,7 @@ namespace btrForensics{
     //!
     //! \return 8-byte chunk tree root physical address.
     //!
-    const BTRFSPhyAddr SuperBlock::getChunkPhyAddr() const
+    const vector<BTRFSPhyAddr> SuperBlock::getChunkPhyAddr() const
     {
         return getChunkAddr(chunkTrRootAddr, &chunkKey, &chunkData);
     }

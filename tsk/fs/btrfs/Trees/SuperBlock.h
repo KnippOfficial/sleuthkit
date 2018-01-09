@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <string>
+#include <vector>
 #include "../../../utils/Uuid.h"
 #include "../../../utils/ReadInt.h"
 #include "../Basics/Basics.h"
@@ -68,7 +69,7 @@ namespace btrForensics{
         SuperBlock(TSK_ENDIAN_ENUM endian, uint8_t arr[]);
         ~SuperBlock() = default; //!< Destructor
 
-        const BTRFSPhyAddr getChunkPhyAddr() const;
+        const std::vector<BTRFSPhyAddr> getChunkPhyAddr() const;
         const uint64_t getRootLogAddr() const;
         const uint64_t getNumDevices(){ return this->numDevices;};
         const uint64_t getChunkLogAddr() const { return chunkTrRootAddr;};
