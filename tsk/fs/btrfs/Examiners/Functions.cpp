@@ -245,6 +245,16 @@ namespace btrForensics{
         return true;
     }
 
+     char const* getRAIDFromFlag(uint64_t type){
+        if(type & BLOCK_FLAG_RAID0){
+            return "RAID0";
+        } else if(type & BLOCK_FLAG_RAID1){
+            return "RAID1";
+        } else if(type & BLOCK_FLAG_RAID10){
+            return "RAID10";
+        } else return "UNKNOWN";
+
+    }
 
     //! Overloaded stream operator.
     std::ostream &operator<<(std::ostream& os, const DirItemType& type)

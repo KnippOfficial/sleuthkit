@@ -79,7 +79,7 @@ BTRFS_POOL::~BTRFS_POOL() {
 }
 
 void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &buffer, bool fillWithZeros) {
-    vector<BTRFSPhyAddr> physicalAddr;
+    vector <BTRFSPhyAddr> physicalAddr;
     uint64_t offset = logical_addr;
     vector<char> stripeData;
     buffer.resize(0);
@@ -94,7 +94,7 @@ void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &bu
     //       stripe_length, num_stripes);
 
     bool read;
-    while(size_left > 0){
+    while (size_left > 0) {
         read = false;
         size_for_stripe = stripe_length - ((offset - chunk_logical) % stripe_length);
         if (size_for_stripe > size_left) {
@@ -106,7 +106,7 @@ void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &bu
         //check if any of these addresses is available
         stripeData.resize(size_for_stripe);
         for (auto &it : physicalAddr) {
-            if(getDeviceByID(it.device) != nullptr){
+            if (getDeviceByID(it.device) != nullptr) {
                 //cerr << "DBG: Found data on device " << it.device << " @ " << it.offset << endl;
                 readRawData(it.device, it.offset, size_for_stripe, stripeData);
                 read = true;
@@ -114,7 +114,7 @@ void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &bu
             }
         }
 
-        if(!read && fillWithZeros){
+        if (!read && fillWithZeros) {
             std::fill(stripeData.begin(), stripeData.end(), 0);
         }
 
@@ -126,7 +126,7 @@ void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &bu
 
 void BTRFS_POOL::readRawData(int dev_id, uint64_t offset, uint64_t size, vector<char> &buffer) {
     BTRFS_DEVICE *dev = getDeviceByID(dev_id);
-    if (dev == nullptr ) {
+    if (dev == nullptr) {
         cerr << "Cannot find device with ID << " << dev_id << endl;
         throw "Device with ID does not exist in this pool!";
     }
@@ -134,7 +134,7 @@ void BTRFS_POOL::readRawData(int dev_id, uint64_t offset, uint64_t size, vector<
     tsk_img_read(dev->getImg(), offset, buffer.data(), size);
 }
 
-uint64_t BTRFS_POOL::getChunkLogicalAddr(uint64_t logical_addr){
+uint64_t BTRFS_POOL::getChunkLogicalAddr(uint64_t logical_addr) {
     if (examiner == nullptr) {
         //chunk tree is not yet ready, so returning the logical addr. of the system chunk from superblock
         //TODO: is there only one system chunk?
@@ -146,7 +146,7 @@ uint64_t BTRFS_POOL::getChunkLogicalAddr(uint64_t logical_addr){
 }
 
 
-vector<BTRFSPhyAddr> BTRFS_POOL::getPhysicalAddress(uint64_t logical_address) {
+vector <BTRFSPhyAddr> BTRFS_POOL::getPhysicalAddress(uint64_t logical_address) {
     //TODO: initialized check function for examiner
     if (examiner == nullptr) {
         BtrfsKey chunkKey = superblock->getChunkKey();
@@ -166,7 +166,7 @@ BTRFS_DEVICE *BTRFS_POOL::getDeviceByID(uint64_t id) const {
 }
 
 void BTRFS_POOL::displayChunkInformation() const {
-    if(examiner != nullptr) {
+    if (examiner != nullptr) {
         examiner->chunkTree->chunkRoot;
         vector<const BtrfsItem *> foundChunks;
         examiner->treeTraverse(examiner->chunkTree->chunkRoot, [&foundChunks](const LeafNode *leaf) {
@@ -175,44 +175,90 @@ void BTRFS_POOL::displayChunkInformation() const {
 
         uint64_t system_chunks = 0;
         uint64_t system_chunks_available = 0;
+        uint64_t system_chunks_type = 0;
         uint64_t data_chunks = 0;
         uint64_t data_chunks_available = 0;
+        uint64_t data_chunks_type = 0;
         uint64_t metadata_chunks = 0;
         uint64_t metadata_chunks_available = 0;
+        uint64_t metadata_chunks_type = 0;
+
 
         for (auto chunk : foundChunks) {
             const ChunkItem *chunk_item = static_cast<const ChunkItem *>(chunk);
-            if(chunk_item->getType() & BLOCK_FLAG_SYSTEM){
+            if (chunk_item->getType() & BLOCK_FLAG_SYSTEM) {
                 system_chunks++;
-                if(isChunkDataAvailable(chunk_item))
+                if (isChunkDataAvailable(chunk_item))
                     system_chunks_available++;
-            } else if (chunk_item->getType() & BLOCK_FLAG_METADATA){
+                if (!system_chunks_type){
+                    system_chunks_type = chunk_item->getType();
+                }
+            } else if (chunk_item->getType() & BLOCK_FLAG_METADATA) {
                 metadata_chunks++;
-                if(isChunkDataAvailable(chunk_item))
+                if (isChunkDataAvailable(chunk_item))
                     metadata_chunks_available++;
-            } else if (chunk_item->getType() & BLOCK_FLAG_DATA){
+                if (!metadata_chunks_type){
+                    metadata_chunks_type = chunk_item->getType();
+                }
+            } else if (chunk_item->getType() & BLOCK_FLAG_DATA) {
                 data_chunks++;
-                if(isChunkDataAvailable(chunk_item))
+                if (isChunkDataAvailable(chunk_item))
                     data_chunks_available++;
+                if (!data_chunks_type){
+                    data_chunks_type = chunk_item->getType();
+                }
             }
         }
 
-        cout << "System chunks: " << system_chunks << "av: " << system_chunks_available << endl;
-        cout << "Metadata chunks: " << metadata_chunks <<  "av: " << metadata_chunks_available << endl;
-        cout << "Data chunks: " << data_chunks <<  "av: " << data_chunks_available << endl;
+        cout << "System chunks: " << system_chunks << "(avail: " << system_chunks_available << ") \t"
+             << getRAIDFromFlag(system_chunks_type) << endl;
+        cout << "Metadata chunks: " << metadata_chunks << "(avail: " << metadata_chunks_available << ") \t"
+             << getRAIDFromFlag(metadata_chunks_available) << endl;
+        cout << "Data chunks: " << data_chunks << "(avail: " << data_chunks_available << ") \t"
+             << getRAIDFromFlag(data_chunks_type) << endl;
     }
 }
 
-bool BTRFS_POOL::isChunkDataAvailable(const ChunkItem* item) const{
+bool BTRFS_POOL::isChunkDataAvailable(const ChunkItem *item) const {
     bool available = true;
-    for(int i=0; i < item->data.getNumStripe(); i++){
-        if(getDeviceByID(item->data.getID(i)) == nullptr){
-            available = false;
-            break;
+
+    if (item->getType() & BLOCK_FLAG_RAID0) {
+        for (int i = 0; i < item->data.getNumStripe(); i++) {
+            if ((getDeviceByID(item->data.getID(i)) == nullptr)) {
+                available = false;
+                break;
+            }
         }
+    } else if (item->getType() & BLOCK_FLAG_RAID1) {
+        available = false;
+        for (int i = 0; i < item->data.getNumStripe(); i++) {
+            if ((getDeviceByID(item->data.getID(i)) != nullptr)) {
+                available = true;
+                break;
+            }
+        }
+    } else if (item->getType() & BLOCK_FLAG_RAID10) {
+        available = true;
+        bool available_second_raid = true;
+        for (int i = 0; i < item->data.getNumStripe() / 2; i++) {
+            if ((getDeviceByID(item->data.getID(i)) == nullptr)) {
+                available = false;
+            }
+            if ((getDeviceByID(item->data.getID(i*2 + 1)) == nullptr)) {
+                available_second_raid = false;
+            }
+        }
+
+        if (available or available_second_raid) {
+            available = true;
+        } else {
+            available = false;
+        }
+
     }
 
     return available;
+
 }
 
 void BTRFS_POOL::print(std::ostream &os) const {

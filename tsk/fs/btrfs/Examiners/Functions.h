@@ -29,6 +29,8 @@ namespace btrForensics {
     uint64_t getChunkLog(const LeafNode *, uint64_t, uint64_t &);
 
     std::ostream &operator<<(std::ostream &os, const DirItemType &type);
+
+    char const* getRAIDFromFlag(uint64_t);
 }
 
 #endif
