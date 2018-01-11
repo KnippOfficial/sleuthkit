@@ -157,12 +157,62 @@ vector<BTRFSPhyAddr> BTRFS_POOL::getPhysicalAddress(uint64_t logical_address) {
     }
 }
 
-BTRFS_DEVICE *BTRFS_POOL::getDeviceByID(uint64_t id) {
+BTRFS_DEVICE *BTRFS_POOL::getDeviceByID(uint64_t id) const {
     for (int i = 0; i < devices.size(); i++) {
         if (devices.at(i)->getID() == id)
             return devices.at(i);
     }
     return nullptr;
+}
+
+void BTRFS_POOL::displayChunkInformation() const {
+    if(examiner != nullptr) {
+        examiner->chunkTree->chunkRoot;
+        vector<const BtrfsItem *> foundChunks;
+        examiner->treeTraverse(examiner->chunkTree->chunkRoot, [&foundChunks](const LeafNode *leaf) {
+            filterItems(leaf, ItemType::CHUNK_ITEM, foundChunks);
+        });
+
+        uint64_t system_chunks = 0;
+        uint64_t system_chunks_available = 0;
+        uint64_t data_chunks = 0;
+        uint64_t data_chunks_available = 0;
+        uint64_t metadata_chunks = 0;
+        uint64_t metadata_chunks_available = 0;
+
+        for (auto chunk : foundChunks) {
+            const ChunkItem *chunk_item = static_cast<const ChunkItem *>(chunk);
+            if(chunk_item->getType() & BLOCK_FLAG_SYSTEM){
+                system_chunks++;
+                if(isChunkDataAvailable(chunk_item))
+                    system_chunks_available++;
+            } else if (chunk_item->getType() & BLOCK_FLAG_METADATA){
+                metadata_chunks++;
+                if(isChunkDataAvailable(chunk_item))
+                    metadata_chunks_available++;
+            } else if (chunk_item->getType() & BLOCK_FLAG_DATA){
+                data_chunks++;
+                if(isChunkDataAvailable(chunk_item))
+                    data_chunks_available++;
+            }
+        }
+
+        cout << "System chunks: " << system_chunks << "av: " << system_chunks_available << endl;
+        cout << "Metadata chunks: " << metadata_chunks <<  "av: " << metadata_chunks_available << endl;
+        cout << "Data chunks: " << data_chunks <<  "av: " << data_chunks_available << endl;
+    }
+}
+
+bool BTRFS_POOL::isChunkDataAvailable(const ChunkItem* item) const{
+    bool available = true;
+    for(int i=0; i < item->data.getNumStripe(); i++){
+        if(getDeviceByID(item->data.getID(i)) == nullptr){
+            available = false;
+            break;
+        }
+    }
+
+    return available;
 }
 
 void BTRFS_POOL::print(std::ostream &os) const {
@@ -174,6 +224,8 @@ void BTRFS_POOL::print(std::ostream &os) const {
         os << "GUID: " << it->getGUID() << endl;
         os << endl;
     }
+
+    displayChunkInformation();
 }
 
 

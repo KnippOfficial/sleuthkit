@@ -23,6 +23,7 @@
 namespace btrForensics {
     class SuperBlock;
     class TreeExaminer;
+    class ChunkItem;
 };
 
 class BTRFS_POOL : public TSK_POOL {
@@ -43,12 +44,14 @@ public:
     void readData(uint64_t, uint64_t, vector<char>&, bool = true);
     void readRawData(int dev, uint64_t offset, uint64_t size, vector<char>& buffer);
     virtual void print(std::ostream& os) const;
-    BTRFS_DEVICE* getDeviceByID(uint64_t);
+    BTRFS_DEVICE* getDeviceByID(uint64_t) const;
 
     void fsstat(string dataset = "", int uberblock = -1);
     void fls(string dataset = "", int uberblock = -1);
     void istat(int object_number, string dataset = "", int uberblock = -1);
     void icat(int object_number, string dataset = "", int uberblock = -1);
+    void displayChunkInformation() const;
+    bool isChunkDataAvailable (const btrForensics::ChunkItem*) const;
     //TODO: wrap function around that
     btrForensics::TreeExaminer* examiner;
 

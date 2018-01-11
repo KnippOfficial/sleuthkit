@@ -17,7 +17,6 @@ namespace btrForensics {
             :examiner(treeExaminer)
     {
         //cerr << "DBG: Creating ChunkTree" << endl;
-        //TODO: use vectors and readData instead of rawdata
         /*BTRFSPhyAddr chunkTreePhyAddr = superBlk->getChunkPhyAddr().at(0);
         cerr << "DBG: device " << chunkTreePhyAddr.device << " @ " << chunkTreePhyAddr.offset << endl;
         examiner->pool->readRawData(chunkTreePhyAddr.device, chunkTreePhyAddr.offset, BtrfsHeader::SIZE_OF_HEADER, diskArr);*/

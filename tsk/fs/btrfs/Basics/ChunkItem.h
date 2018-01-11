@@ -22,6 +22,8 @@ namespace btrForensics{
         ChunkItem(ItemHead* head, TSK_ENDIAN_ENUM endian, uint8_t arr[]);
         ~ChunkItem() = default; //!< Destructor
 
+        uint64_t getType() const { return data.getType(); };
+
         std::string dataInfo() const override;
     };
 }
