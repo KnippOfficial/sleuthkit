@@ -210,12 +210,12 @@ void BTRFS_POOL::displayChunkInformation() const {
             }
         }
 
-        cout << "System chunks: " << system_chunks_available << "/" << system_chunks << "\t"
-             << getRAIDFromFlag(system_chunks_type) << endl;
-        cout << "Metadata chunks: " << metadata_chunks_available << "/" << metadata_chunks << "\t"
-             << getRAIDFromFlag(metadata_chunks_type) << endl;
-        cout << "Data chunks: " << data_chunks_available << "/" << data_chunks << "\t"
-             << getRAIDFromFlag(data_chunks_type) << endl;
+        cout << "System chunks: " << getRAIDFromFlag(system_chunks_type) << "(" << system_chunks_available << "/"
+             << system_chunks << ")" << endl;
+        cout << "Metadata chunks: " << getRAIDFromFlag(metadata_chunks_type) << "(" << metadata_chunks_available << "/"
+             << metadata_chunks << ")" << endl;
+        cout << "Data chunks: " << getRAIDFromFlag(data_chunks_type) << "(" << data_chunks_available << "/"
+             << data_chunks << ")" << endl;
     }
 }
 
@@ -249,11 +249,7 @@ bool BTRFS_POOL::isChunkDataAvailable(const ChunkItem *item) const {
             }
         }
 
-        if (available or available_second_raid) {
-            available = true;
-        } else {
-            available = false;
-        }
+        available = available or available_second_raid;
 
     }
 
