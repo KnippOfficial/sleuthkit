@@ -210,11 +210,11 @@ void BTRFS_POOL::displayChunkInformation() const {
             }
         }
 
-        cout << "System chunks: " << getRAIDFromFlag(system_chunks_type) << "(" << system_chunks_available << "/"
+        cout << "System chunks: " << getRAIDFromFlag(system_chunks_type) << " (" << system_chunks_available << "/"
              << system_chunks << ")" << endl;
-        cout << "Metadata chunks: " << getRAIDFromFlag(metadata_chunks_type) << "(" << metadata_chunks_available << "/"
+        cout << "Metadata chunks: " << getRAIDFromFlag(metadata_chunks_type) << " (" << metadata_chunks_available << "/"
              << metadata_chunks << ")" << endl;
-        cout << "Data chunks: " << getRAIDFromFlag(data_chunks_type) << "(" << data_chunks_available << "/"
+        cout << "Data chunks: " << getRAIDFromFlag(data_chunks_type) << " (" << data_chunks_available << "/"
              << data_chunks << ")" << endl;
     }
 }
