@@ -49,6 +49,8 @@ namespace btrForensics{
             deviceUUIDs.push_back(UUID(endian, arr + arIndex));
             arIndex += 0x10;
         }
+
+        bytesUsed = arIndex;
     }
 
     //! Return infomation about the item data as string.

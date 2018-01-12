@@ -29,6 +29,7 @@ namespace btrForensics {
 
         uint16_t numStripe;
         uint16_t subStripe;
+        uint64_t bytesUsed;
 
         std::vector<uint64_t> deviceIds;
         std::vector<uint64_t> offsets;
@@ -51,6 +52,7 @@ namespace btrForensics {
         uint64_t getID(int i) const { return deviceIds.at(i); };
 
         uint16_t getNumStripe() const { return numStripe;};
+        uint64_t getBytesUsed() const { return bytesUsed;};
         UUID getUUID(int i) const { return deviceUUIDs.at(i); };
 
 

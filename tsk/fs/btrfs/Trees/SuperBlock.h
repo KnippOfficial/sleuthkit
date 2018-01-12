@@ -75,7 +75,7 @@ namespace btrForensics{
         const uint64_t getNumDevices(){ return this->numDevices;};
         const uint64_t getChunkLogAddr() const { return chunkTrRootAddr;};
         const uint32_t getStripeSize() { return this->stripeSize;};
-        const uint32_t getN() { return this->n;};
+        const uint32_t getSysChunkSize() { return this->chunkData.size();};
 
         const ChunkData getChunkData() { return this->chunkData.at(0);};
         const BtrfsKey getChunkKey() { return this->chunkKey.at(0);};

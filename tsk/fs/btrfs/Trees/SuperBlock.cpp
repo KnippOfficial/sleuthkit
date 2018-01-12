@@ -106,6 +106,7 @@ namespace btrForensics{
             label[i] = arr[arIndex++];
         }
 
+
         for(int i=0; i < BTRFS_NUM_BACKUP_ROOTS; i++){
             arIndex = 0xb2b + i*0xa8;
             backupRoots[i].tree_root = read64Bit(endian, arr + arIndex);
@@ -115,9 +116,11 @@ namespace btrForensics{
             arIndex += 0x08;
         }
 
-        for(int i=0; i < n; i++){
-            chunkKey.push_back(BtrfsKey(endian, arr + 0x32b));
-            chunkData.push_back(ChunkData(endian, arr + 0x33c));
+        uint64_t bytesRead = 0;
+        while(bytesRead < n){
+            chunkKey.push_back(BtrfsKey(endian, arr + 0x32b + bytesRead));
+            chunkData.push_back(ChunkData(endian, arr + 0x33c + bytesRead));
+            bytesRead += chunkData.back().getBytesUsed()+17;
         }
     }
 

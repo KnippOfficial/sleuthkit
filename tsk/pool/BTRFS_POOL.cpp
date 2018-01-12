@@ -274,8 +274,9 @@ void BTRFS_POOL::print(std::ostream &os) const {
 
 
     /*DBG CODE*/
-    for(int i=0; i < superblock->getN(); i++){
+    for(int i=0; i < superblock->getSysChunkSize(); i++){
         cout << superblock->getChunkKey(i) << endl;
+        cout << superblock->getChunkData(i).dataInfo() << endl;
     }
 
 }
