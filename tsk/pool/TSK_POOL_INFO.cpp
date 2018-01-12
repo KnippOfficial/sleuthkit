@@ -32,7 +32,6 @@ TSK_POOL_INFO::TSK_POOL_INFO(TSK_ENDIAN_ENUM endian, std::string pathToFolder)
                 }
 
                 members[pathToFile] = (tsk_img_open(1, (const TSK_TCHAR *const *) &pathToFile, TSK_IMG_TYPE_DETECT, 0));
-                //cout << pathToFile << endl;
                 if (members[pathToFile] == nullptr) {
                     tsk_error_print(stderr);
                     std::cerr << "Cannot open image " << pathToFile << "." << std::endl;

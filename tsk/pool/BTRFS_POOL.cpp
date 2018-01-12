@@ -210,11 +210,11 @@ void BTRFS_POOL::displayChunkInformation() const {
             }
         }
 
-        cout << "System chunks: " << getRAIDFromFlag(system_chunks_type) << " (" << system_chunks_available << "/"
+        cout << "System chunks: \t\t" << getRAIDFromFlag(system_chunks_type) << " (" << system_chunks_available << "/"
              << system_chunks << ")" << endl;
-        cout << "Metadata chunks: " << getRAIDFromFlag(metadata_chunks_type) << " (" << metadata_chunks_available << "/"
+        cout << "Metadata chunks: \t" << getRAIDFromFlag(metadata_chunks_type) << " (" << metadata_chunks_available << "/"
              << metadata_chunks << ")" << endl;
-        cout << "Data chunks: " << getRAIDFromFlag(data_chunks_type) << " (" << data_chunks_available << "/"
+        cout << "Data chunks: \t\t\t" << getRAIDFromFlag(data_chunks_type) << " (" << data_chunks_available << "/"
              << data_chunks << ")" << endl;
     }
 }
@@ -262,12 +262,22 @@ void BTRFS_POOL::print(std::ostream &os) const {
     os << "Number of devices/stripes: " << no_all_devices << " (" << no_available_devices << " detected)" << endl;
     os << "-------------------------------------------------" << endl;
     for (auto &it : devices) {
-        os << "ID: " << it->getID() << (it->getAvailable() ? " [X]" : " [O]") << endl;
-        os << "GUID: " << it->getGUID() << endl;
+        os << "ID: \t" << it->getID() << endl;
+        os << "GUID:\t" << it->getGUID() << endl;
         os << endl;
     }
 
     displayChunkInformation();
+    //TODO: not only of one superblock
+    cout << endl << "Backup Roots:" << endl;
+    superblock->printRootBackups();
+
+
+    /*DBG CODE*/
+    for(int i=0; i < superblock->getN(); i++){
+        cout << superblock->getChunkKey(i) << endl;
+    }
+
 }
 
 

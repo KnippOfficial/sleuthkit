@@ -17,8 +17,7 @@ namespace btrForensics{
     //! \param arr Byte array storing super block data.
     //! 
     SuperBlock::SuperBlock(TSK_ENDIAN_ENUM endian, uint8_t arr[])
-        :fsUUID(endian, arr + 0x20), devItemData(endian, arr + 0xc9),
-         chunkKey(endian, arr + 0x32b), chunkData(endian, arr + 0x33c)
+        :fsUUID(endian, arr + 0x20), devItemData(endian, arr + 0xc9)
     {
         int arIndex(0);
         for(int i=0; i<0x20; i++){
@@ -106,8 +105,30 @@ namespace btrForensics{
         for(int i=0; i<LABEL_SIZE; i++){
             label[i] = arr[arIndex++];
         }
+
+        for(int i=0; i < BTRFS_NUM_BACKUP_ROOTS; i++){
+            arIndex = 0xb2b + i*0xa8;
+            backupRoots[i].tree_root = read64Bit(endian, arr + arIndex);
+            arIndex += 0x08;
+
+            backupRoots[i].tree_root_gen = read64Bit(endian, arr + arIndex);
+            arIndex += 0x08;
+        }
+
+        for(int i=0; i < n; i++){
+            chunkKey.push_back(BtrfsKey(endian, arr + 0x32b));
+            chunkData.push_back(ChunkData(endian, arr + 0x33c));
+        }
     }
 
+
+    void SuperBlock::printRootBackups() const {
+        for(int i=0; i < BTRFS_NUM_BACKUP_ROOTS; i++){
+            cout << i+1 << ". tree root at " << backupRoots[i].tree_root << " (generation: "
+                 << backupRoots[i].tree_root_gen << ")" << endl;
+        }
+
+    }
 
     //! Get chunk tree root address from superblock.
     //!
@@ -115,7 +136,9 @@ namespace btrForensics{
     //!
     const vector<BTRFSPhyAddr> SuperBlock::getChunkPhyAddr() const
     {
-        return getChunkAddr(chunkTrRootAddr, &chunkKey, &chunkData);
+        BtrfsKey key = chunkKey.at(0);
+        ChunkData data = chunkData.at(0);
+        return getChunkAddr(chunkTrRootAddr, &key, &data);
     }
 
 

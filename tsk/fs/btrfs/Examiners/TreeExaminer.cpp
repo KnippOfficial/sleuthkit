@@ -350,14 +350,11 @@ namespace btrForensics {
                     newNode = ptr->childNode;
                 }
                 else {
-                    //TODO: support for vector
-                    BTRFSPhyAddr physicalAddr = getPhysicalAddr(ptr->getBlkNum()).at(0);
-                    char *headerArr = new char[BtrfsHeader::SIZE_OF_HEADER]();
-                    tsk_img_read(image, physicalAddr.offset, headerArr, BtrfsHeader::SIZE_OF_HEADER);
-                    BtrfsHeader *header = new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr);
-                    delete [] headerArr; 
+                    vector<char> headerArr;
+                    pool->readData(ptr->getBlkNum(), BtrfsHeader::SIZE_OF_HEADER, headerArr);
+                    BtrfsHeader *header = new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr.data());
 
-                    uint64_t itemOffset = physicalAddr.offset + BtrfsHeader::SIZE_OF_HEADER;
+                    uint64_t itemOffset = ptr->getBlkNum() + BtrfsHeader::SIZE_OF_HEADER;
 
                     if(header->isLeafNode()){
                         newNode = new LeafNode(pool, header, endian, itemOffset);
@@ -399,14 +396,11 @@ namespace btrForensics {
                     newNode = ptr->childNode;
                 }
                 else {
-                    //TODO: support for vector
-                    BTRFSPhyAddr physicalAddr = getPhysicalAddr(ptr->getBlkNum()).at(0);
-                    char *headerArr = new char[BtrfsHeader::SIZE_OF_HEADER]();
-                    tsk_img_read(image, physicalAddr.offset, headerArr, BtrfsHeader::SIZE_OF_HEADER);
-                    BtrfsHeader *header = new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr);
-                    delete [] headerArr; 
+                    vector<char> headerArr;
+                    pool->readData(ptr->getBlkNum(), BtrfsHeader::SIZE_OF_HEADER, headerArr);
+                    BtrfsHeader *header = new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr.data());
 
-                    uint64_t itemOffset = physicalAddr.offset + BtrfsHeader::SIZE_OF_HEADER;
+                    uint64_t itemOffset = ptr->getBlkNum() + BtrfsHeader::SIZE_OF_HEADER;
                     
                     if(header->isLeafNode()){
                         newNode = new LeafNode(pool, header, endian, itemOffset);
@@ -462,7 +456,6 @@ namespace btrForensics {
                 }
                 else {
                     vector<char> headerArr;
-                    //cerr << "DBG: reading... " << ptr->getBlkNum() << endl;
                     pool->readData(ptr->getBlkNum(), BtrfsHeader::SIZE_OF_HEADER, headerArr);
                     BtrfsHeader *header = new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr.data());
 

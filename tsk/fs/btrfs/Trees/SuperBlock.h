@@ -62,8 +62,9 @@ namespace btrForensics{
         const DevData devItemData; //0xc9
         uint8_t label[LABEL_SIZE];
 
-        const BtrfsKey chunkKey;
-        const ChunkData chunkData;
+        std::vector<BtrfsKey> chunkKey;
+        std::vector<ChunkData> chunkData;
+        btrfs_root_backup backupRoots[BTRFS_NUM_BACKUP_ROOTS];
 
     public:
         SuperBlock(TSK_ENDIAN_ENUM endian, uint8_t arr[]);
@@ -74,18 +75,23 @@ namespace btrForensics{
         const uint64_t getNumDevices(){ return this->numDevices;};
         const uint64_t getChunkLogAddr() const { return chunkTrRootAddr;};
         const uint32_t getStripeSize() { return this->stripeSize;};
+        const uint32_t getN() { return this->n;};
 
-        const ChunkData getChunkData() { return this->chunkData;};
-        const BtrfsKey getChunkKey() { return this->chunkKey;};
+        const ChunkData getChunkData() { return this->chunkData.at(0);};
+        const BtrfsKey getChunkKey() { return this->chunkKey.at(0);};
+        const ChunkData getChunkData(int i) { return this->chunkData.at(i);};
+        const BtrfsKey getChunkKey(int i) { return this->chunkKey.at(i);};
+
         const DevData getDevData() { return this->devItemData;};
         const UUID getUUID(){ return this->fsUUID;};
 
         const std::string printMagic() const;
         const std::string printSpace() const;
         const std::string printLabel() const;
+        void printRootBackups() const;
 
         static const int ADDR_OF_SPR_BLK = 0x10000;  //!< Address of superblock on disk.
-        static const int SIZE_OF_SPR_BLK = 0xb2b;  //!< Size of superblock on disk.
+        static const int SIZE_OF_SPR_BLK = 0xdcb;  //!< Size of superblock on disk.
 
         friend std::ostream &operator<<(std::ostream &os, SuperBlock &supb);
     };
