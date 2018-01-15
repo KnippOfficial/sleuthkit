@@ -50,6 +50,7 @@ namespace btrForensics {
         uint64_t getStripeLength() const { return stripeLength;};
         uint64_t getOffset(int i) const { return offsets.at(i); };
         uint64_t getID(int i) const { return deviceIds.at(i); };
+        uint64_t getChunkSize() const {return chunkSize;};
 
         uint16_t getNumStripe() const { return numStripe;};
         uint64_t getBytesUsed() const { return bytesUsed;};

@@ -103,8 +103,10 @@ namespace btrForensics{
     bool getPhyAddr(const LeafNode* leaf, uint64_t targetLogAddr,
            vector<BTRFSPhyAddr>& physAddr)
     {
+        bool found = false;
         const BtrfsItem* target(nullptr);
-
+        const ChunkItem* chunk(nullptr);
+        cout << "DBG: getPhyAddr" << endl;
         for(auto item : leaf->itemList) {
             //The item must be a chunk item.
             if(item->getItemType() != ItemType::CHUNK_ITEM)
@@ -113,10 +115,17 @@ namespace btrForensics{
             //target logical address.
             //In other words, find the chunk with logical address that is the
             //largest one but smaller or equal to target logical address.
-            if(item->itemHead->key.offset <= targetLogAddr)
+            //cout << *item << endl;
+            chunk = static_cast<const ChunkItem*>(item);
+            if(item->itemHead->key.offset <= targetLogAddr &&
+               (targetLogAddr < item->itemHead->key.offset + chunk->data.getChunkSize())) {
                 target = item;
-            else
+                found = true;
+                cout << "TARGET FOUND: " << targetLogAddr << " in " << item->itemHead->key.offset << " - "
+                     << item->itemHead->key.offset + chunk->data.getChunkSize() << "!" << endl;
                 break;
+            }
+
         }
 
         //TODO: Fallback for multi-device and nullptr
@@ -125,13 +134,15 @@ namespace btrForensics{
         /*if(target == nullptr)
             targetPhyAddr = targetLogAddr;*/
 
-        const ChunkItem* chunk = static_cast<const ChunkItem*>(target);
-
         //Read the chunk to calculate actual physical address.
-        physAddr =
-            getChunkAddr(targetLogAddr, &chunk->itemHead->key, &chunk->data);
+        if(found){
+            physAddr =
+                    getChunkAddr(targetLogAddr, &chunk->itemHead->key, &chunk->data);
+            return true;
+        } else {
+            return false;
+        }
 
-        return true;
     }
 
 
