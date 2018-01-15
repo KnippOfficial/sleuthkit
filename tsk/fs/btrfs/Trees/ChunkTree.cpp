@@ -27,7 +27,7 @@ namespace btrForensics {
         if(chunkHeader->isLeafNode())
             chunkRoot = new LeafNode(examiner->pool, chunkHeader, examiner->endian, itemListStart);
         else
-            chunkRoot = new InternalNode(examiner->pool, chunkHeader, examiner->endian, itemListStart);
+            chunkRoot = new InternalNode(examiner->pool, chunkHeader, examiner->endian, itemListStart, true);
 
     }
 

@@ -17,7 +17,7 @@ namespace btrForensics{
     //! \param startOffset Offset of the node, right after header.
     //!
     InternalNode::InternalNode(BTRFS_POOL *pool, const BtrfsHeader *header,
-            TSK_ENDIAN_ENUM endian, uint64_t startOffset)
+            TSK_ENDIAN_ENUM endian, uint64_t startOffset, bool cacheInternalNodes)
         :BtrfsNode(header)
     {
         vector<char> diskArr;
@@ -33,7 +33,7 @@ namespace btrForensics{
 
             pool->readData(startOffset + itemOffset, KeyPtr::SIZE_OF_KEY_PTR, diskArr);
 
-            keyPointers.push_back(new KeyPtr(pool, endian, (uint8_t*)diskArr.data()));
+            keyPointers.push_back(new KeyPtr(pool, endian, (uint8_t*)diskArr.data(), cacheInternalNodes));
 
             itemOffset += KeyPtr::SIZE_OF_KEY_PTR;
         }

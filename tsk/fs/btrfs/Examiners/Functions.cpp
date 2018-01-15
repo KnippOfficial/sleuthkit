@@ -106,7 +106,6 @@ namespace btrForensics{
         bool found = false;
         const BtrfsItem* target(nullptr);
         const ChunkItem* chunk(nullptr);
-        cout << "DBG: getPhyAddr" << endl;
         for(auto item : leaf->itemList) {
             //The item must be a chunk item.
             if(item->getItemType() != ItemType::CHUNK_ITEM)
@@ -238,7 +237,7 @@ namespace btrForensics{
             //cout << *item << endl;
             chunk = static_cast<const ChunkItem*>(item);
             if(item->itemHead->key.offset <= logicalAddr &&
-               (logicalAddr < item->itemHead->key.offset + chunk->data.getChunkSize())) {
+               (logicalAddr < (item->itemHead->key.offset + chunk->data.getChunkSize()))) {
                 target = item;
                 found = true;
                 break;

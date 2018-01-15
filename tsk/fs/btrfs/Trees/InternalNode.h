@@ -21,7 +21,7 @@ namespace btrForensics{
         vector<KeyPtr*> keyPointers; //!< Key pointers to other nodes.
 
     public:
-        InternalNode(BTRFS_POOL*, const BtrfsHeader*, TSK_ENDIAN_ENUM, uint64_t);
+        InternalNode(BTRFS_POOL*, const BtrfsHeader*, TSK_ENDIAN_ENUM, uint64_t, bool = false);
         ~InternalNode();
 
         const std::string info() const override;
