@@ -346,7 +346,7 @@ void BTRFS_POOL::fls(string str_dataset, int uberblock) {
         }
 
         if (fsTreeID == 0) {
-            //cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
+            cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
         } else {
             examiner->reInitializeFSTree(fsTreeID);
         }
@@ -373,7 +373,7 @@ void BTRFS_POOL::istat(int object_number, string str_dataset, int uberblock) {
         }
 
         if (fsTreeID == 0) {
-            //cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
+            cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
         } else {
             examiner->reInitializeFSTree(fsTreeID);
         }
@@ -400,7 +400,7 @@ void BTRFS_POOL::icat(int object_number, string str_dataset, int uberblock) {
         }
 
         if (fsTreeID == 0) {
-            //cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
+            cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
         } else {
             examiner->reInitializeFSTree(fsTreeID);
         }
