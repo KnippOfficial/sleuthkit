@@ -120,8 +120,8 @@ namespace btrForensics{
                (targetLogAddr < item->itemHead->key.offset + chunk->data.getChunkSize())) {
                 target = item;
                 found = true;
-                cout << "TARGET FOUND: " << targetLogAddr << " in " << item->itemHead->key.offset << " - "
-                     << item->itemHead->key.offset + chunk->data.getChunkSize() << "!" << endl;
+                //cout << "TARGET FOUND: " << targetLogAddr << " in " << item->itemHead->key.offset << " - "
+                //     << item->itemHead->key.offset + chunk->data.getChunkSize() << "!" << endl;
                 break;
             }
 
@@ -267,7 +267,13 @@ namespace btrForensics{
             return "RAID1";
         } else if(type & BLOCK_FLAG_RAID10){
             return "RAID10";
-        } else return "UNKNOWN";
+        } else if(type & BLOCK_FLAG_RAID5) {
+            return "RAID5";
+        } else if(type & BLOCK_FLAG_RAID6){
+            return "RAID6";
+        } else {
+            return "No RAID used";
+        }
 
     }
 
