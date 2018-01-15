@@ -223,8 +223,9 @@ namespace btrForensics{
 
     //TODO: shorten function
     uint64_t getChunkLog(const LeafNode* leaf, uint64_t logicalAddr, uint64_t& chunkLogical){
-
+        bool found = false;
         const BtrfsItem* target(nullptr);
+        const ChunkItem* chunk(nullptr);
 
         for(auto item : leaf->itemList) {
             //The item must be a chunk item.
@@ -232,12 +233,17 @@ namespace btrForensics{
                 continue;
             //Chunk logical address should be just smaller than or equal to
             //target logical address.
-            //In other words, find the chunk with logcial address that is the
+            //In other words, find the chunk with logical address that is the
             //largest one but smaller or equal to target logical address.
-            if(item->itemHead->key.offset <= logicalAddr)
+            //cout << *item << endl;
+            chunk = static_cast<const ChunkItem*>(item);
+            if(item->itemHead->key.offset <= logicalAddr &&
+               (logicalAddr < item->itemHead->key.offset + chunk->data.getChunkSize())) {
                 target = item;
-            else
+                found = true;
                 break;
+            }
+
         }
 
         //TODO: Fallback for multi-device and nullptr
@@ -246,12 +252,13 @@ namespace btrForensics{
         /*if(target == nullptr)
             targetPhyAddr = targetLogAddr;*/
 
-        const ChunkItem* chunk = static_cast<const ChunkItem*>(target);
-
         //Read the chunk to calculate actual physical address.
-        chunkLogical = chunk->itemHead->key.offset;
-
-        return true;
+        if(found){
+            chunkLogical = chunk->itemHead->key.offset;
+            return true;
+        } else {
+            return false;
+        }
     }
 
      char const* getRAIDFromFlag(uint64_t type){
