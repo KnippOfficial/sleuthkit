@@ -89,7 +89,7 @@ void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &bu
     uint64_t size_left = size;
     uint64_t size_for_stripe = 0;
     uint64_t chunk_logical = this->getChunkLogicalAddr(logical_addr);
-    printf("input_log %u | chunk_log %u | size %u | str_len %u | num_stripes %d\n", offset, chunk_logical, size,
+    printf("input_log %llu | chunk_log %llu | size %llu | str_len %u | num_stripes %d\n", offset, chunk_logical, size,
            stripe_length, num_stripes);
 
     bool read;
