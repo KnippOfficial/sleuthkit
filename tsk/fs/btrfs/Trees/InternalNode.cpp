@@ -33,7 +33,7 @@ namespace btrForensics{
 
             pool->readData(startOffset + itemOffset, KeyPtr::SIZE_OF_KEY_PTR, diskArr);
 
-            keyPointers.push_back(new KeyPtr(endian, (uint8_t*)diskArr.data()));
+            keyPointers.push_back(new KeyPtr(pool, endian, (uint8_t*)diskArr.data()));
 
             itemOffset += KeyPtr::SIZE_OF_KEY_PTR;
         }

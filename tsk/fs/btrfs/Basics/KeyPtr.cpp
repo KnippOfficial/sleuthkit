@@ -6,6 +6,9 @@
 #include "KeyPtr.h"
 #include "../../../utils/ReadInt.h"
 #include "../Trees/BtrfsNode.h"
+#include "../Trees/LeafNode.h"
+#include "../../../pool/BTRFS_POOL.h"
+
 
 namespace btrForensics{
 
@@ -14,7 +17,7 @@ namespace btrForensics{
     //! \param endian The endianess of the array.
     //! \param arr Byte array storing key pointer data.
     //!
-    KeyPtr::KeyPtr(TSK_ENDIAN_ENUM endian, uint8_t arr[])
+    KeyPtr::KeyPtr(BTRFS_POOL* pool, TSK_ENDIAN_ENUM endian, uint8_t arr[])
         :key(endian, arr), childNode(nullptr)
     {
         int arIndex(BtrfsKey::SIZE_OF_KEY); //Key initialized already.
@@ -23,6 +26,19 @@ namespace btrForensics{
 
         generation = read64Bit(endian, arr + arIndex);
         arIndex += 0x08;
+
+        vector<char> headerArr;
+        pool->readData(blkNum, BtrfsHeader::SIZE_OF_HEADER, headerArr);
+        BtrfsHeader *header = new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr.data());
+
+        uint64_t itemOffset = getBlkNum() + BtrfsHeader::SIZE_OF_HEADER;
+
+        if(header->isLeafNode()){
+            childNode = new LeafNode(pool, header, endian, itemOffset);
+        }
+        else {
+            childNode = new InternalNode(pool, header, endian, itemOffset);
+        }
     }
 
 

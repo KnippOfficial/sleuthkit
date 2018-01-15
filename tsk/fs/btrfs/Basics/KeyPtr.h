@@ -12,6 +12,8 @@
 #include "BtrfsKey.h"
 //#include "Trees/BtrfsNode.h"
 
+class BTRFS_POOL;
+
 namespace btrForensics{
     class BtrfsNode;
 
@@ -27,7 +29,7 @@ namespace btrForensics{
         //Total bytes: 0x21
 
     public:
-        KeyPtr(TSK_ENDIAN_ENUM endian, uint8_t arr[]);
+        KeyPtr(BTRFS_POOL *pool, TSK_ENDIAN_ENUM endian, uint8_t arr[]);
         ~KeyPtr();
 
         const uint64_t getBlkNum() const { return blkNum; }  //!< Return block number.
