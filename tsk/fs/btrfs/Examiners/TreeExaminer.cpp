@@ -434,10 +434,10 @@ namespace btrForensics {
         //cerr << "DBG: treeSearchById" << endl;
         //cerr << node->info() << endl;
 
-        cerr << "SEARCHING FOR INODE: " << targetId << endl;
+        //cerr << "SEARCHING FOR INODE: " << targetId << endl;
 
         if(node->nodeHeader->isLeafNode()){
-            cerr << "FOUND LEAF NODE!" << endl;
+            //cerr << "FOUND LEAF NODE!" << endl;
             const LeafNode *leaf = static_cast<const LeafNode*>(node);
             return searchFunc(leaf, targetId);
         }
@@ -446,10 +446,10 @@ namespace btrForensics {
             const BtrfsNode *newNode;
 
             const auto &vecPtr = internal->keyPointers;
-            cerr << "FOUND INTERNAL NODE WITH " << vecPtr.size() << " CHILD NODES!" << endl;
+            //cerr << "FOUND INTERNAL NODE WITH " << vecPtr.size() << " CHILD NODES!" << endl;
             for(int i=0; i<vecPtr.size();++i) {
                 auto ptr = vecPtr[i];
-                cerr << "PROCESSING " << ptr->key.objId << endl;
+                //cerr << "PROCESSING " << ptr->key.objId << endl;
                 if(ptr->key.objId > targetId)
                     return false;
                 if(ptr->key.objId<targetId && i!=vecPtr.size()-1
