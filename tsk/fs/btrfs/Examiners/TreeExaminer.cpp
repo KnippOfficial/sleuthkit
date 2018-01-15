@@ -89,18 +89,18 @@ namespace btrForensics {
 
     //New init function so that BTFRS_POOL can asap use the chunktree
     void TreeExaminer::initializeFSTree(uint64_t id) {
-        //cerr << "DBG: Inititalize FSTree" << endl;
+        cerr << "DBG: Inititalize FSTree" << endl;
 
         if(id == 0){
             id = getDefaultFsId();
         }
 
-        //cerr << "DBG: DefaultID:  " << id << endl;
+        cerr << "DBG: DefaultID:  " << id << endl;
 
         fsTree = new FilesystemTree(rootTree, id, this);
         fsTreeDefault = fsTree;
 
-        //cerr << "DBG: CreatedFSTree " << endl;
+        cerr << "DBG: CreatedFSTree " << endl;
     }
 
     //reinit fs tree to access snapshots/subvolumes
@@ -119,20 +119,20 @@ namespace btrForensics {
     //! Initialize root of Root Tree.
     void TreeExaminer::initializeRootTree(const SuperBlock* superBlk)
     {
-        //cerr << "DBG: INITIALIZE ROOT TREE" << endl;
+        cerr << "DBG: INITIALIZE ROOT TREE" << endl;
 
         uint64_t rootTreelogAddr = superBlk->getRootLogAddr();
         //uint64_t rootTreelogAddr = 40714240;
-        //cerr << "DBG: RootTreeLogAddr: " << rootTreelogAddr << endl;
+        cerr << "DBG: RootTreeLogAddr: " << rootTreelogAddr << endl;
 
         vector<char> diskArr;
         pool->readData(rootTreelogAddr, BtrfsHeader::SIZE_OF_HEADER, diskArr);
         BtrfsHeader* rootHeader = new BtrfsHeader(endian, (uint8_t*)diskArr.data());
 
-        //cerr << "using rootTree at logical address: "  << rootTreelogAddr << " (transaction "
-        //     << rootHeader->getGeneration() << ")" << endl << endl;
+        cerr << "using rootTree at logical address: "  << rootTreelogAddr << " (transaction "
+             << rootHeader->getGeneration() << ")" << endl << endl;
 
-        //cerr << "DBG: CreatedRootHeader" << endl;
+        cerr << "DBG: CreatedRootHeader" << endl;
 
         uint64_t itemListStart = rootTreelogAddr + BtrfsHeader::SIZE_OF_HEADER;
         if(rootHeader->isLeafNode())
@@ -140,7 +140,7 @@ namespace btrForensics {
         else
             rootTree = new InternalNode(pool, rootHeader, endian, itemListStart);
 
-        //cerr << "DBG: CreatedRootTree " << endl;
+        cerr << "DBG: CreatedRootTree " << endl;
     }
 
 

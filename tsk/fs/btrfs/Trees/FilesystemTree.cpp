@@ -48,7 +48,7 @@ namespace btrForensics {
         const BtrfsHeader *fileTreeHeader =
             new BtrfsHeader(TSK_LIT_ENDIAN, (uint8_t*)headerArr.data());
 
-        //cerr << "DBG: Created Filesystem Tree Header" << endl;
+        cerr << "DBG: Created Filesystem Tree Header" << endl;
 
         uint64_t itemOffset = offset + BtrfsHeader::SIZE_OF_HEADER;
 
@@ -59,7 +59,7 @@ namespace btrForensics {
             fileTreeRoot = new InternalNode(examiner->pool, fileTreeHeader, examiner->endian, itemOffset);
         }
 
-        //cerr << "DBG: Created Filesystem Tree Root Node" << endl;
+        cerr << "DBG: Created Filesystem Tree Root Node" << endl;
     }
 
 
