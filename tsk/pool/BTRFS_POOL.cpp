@@ -89,7 +89,6 @@ void BTRFS_POOL::readData(uint64_t logical_addr, uint64_t size, vector<char> &bu
     uint64_t size_left = size;
     uint64_t size_for_stripe = 0;
     uint64_t chunk_logical = this->getChunkLogicalAddr(logical_addr);
-
     //printf("input_log %d | chunk_log %d | size %d | str_len %d | num_stripes %d\n", offset, chunk_logical, size,
     //       stripe_length, num_stripes);
 
@@ -134,24 +133,47 @@ void BTRFS_POOL::readRawData(int dev_id, uint64_t offset, uint64_t size, vector<
     tsk_img_read(dev->getImg(), offset, buffer.data(), size);
 }
 
-uint64_t BTRFS_POOL::getChunkLogicalAddr(uint64_t logical_addr) {
-    if (examiner == nullptr) {
-        //chunk tree is not yet ready, so returning the logical addr. of the system chunk from superblock
-        //TODO: is there only one system chunk?
-        BtrfsKey chunkKey = superblock->getChunkKey();
-        return chunkKey.offset;
+uint64_t BTRFS_POOL::getChunkLogicalAddr(uint64_t logical_address) {
+    //chunk tree is not yet ready, so returning the logical addr. of the correct system chunk from superblock
+    //cerr << "DBG: getChunkLogicalAddr;  " << logical_address << endl;
+    uint64_t chunkLogical = 0;
+    bool found = false;
+
+    for(int i=0; i < superblock->getSysChunkSize(); i++){
+        if(superblock->getChunkKey(i).offset <= logical_address){
+            chunkLogical = superblock->getChunkKey(i).offset;
+            found = true;
+        } else {
+            break;
+        }
+    }
+    //TODO: exception if not found
+    if(found){
+        return chunkLogical;
     } else {
-        examiner->getChunkLogicalAddr(logical_addr);
+        return examiner->getChunkLogicalAddr(logical_address);
     }
 }
 
 
 vector <BTRFSPhyAddr> BTRFS_POOL::getPhysicalAddress(uint64_t logical_address) {
     //TODO: initialized check function for examiner
-    if (examiner == nullptr) {
-        BtrfsKey chunkKey = superblock->getChunkKey();
-        ChunkData chunkData = superblock->getChunkData();
-        return getChunkAddr(logical_address, &chunkKey, &chunkData);
+    bool found = false;
+    int found_index = 0;
+
+    for(int i=0; i < superblock->getSysChunkSize(); i++){
+        if(superblock->getChunkKey(i).offset <= logical_address){
+            found_index = i;
+            found = true;
+        } else {
+            break;
+        }
+    }
+
+    if(found){
+        BtrfsKey key = superblock->getChunkKey(found_index);
+        ChunkData data = superblock->getChunkData(found_index);
+        return getChunkAddr(logical_address, &key, &data);
     } else {
         return examiner->getPhysicalAddr(logical_address);
     }

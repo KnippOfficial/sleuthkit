@@ -201,8 +201,6 @@ namespace btrForensics{
             addresses.push_back(temp);
         }
 
-        //printf("deviceid %d | phys_addr %d\n", chunkData->getID(device), offset);
-
         //Input logical address should be larger than chunk logical address.
         if(logicalAddr < chunkLogical)
             throw FsDamagedException("Superblock chunk item error. Unable to map logical address to physical address.");

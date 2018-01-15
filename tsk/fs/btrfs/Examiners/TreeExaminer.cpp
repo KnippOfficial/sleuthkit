@@ -129,8 +129,8 @@ namespace btrForensics {
         pool->readData(rootTreelogAddr, BtrfsHeader::SIZE_OF_HEADER, diskArr);
         BtrfsHeader* rootHeader = new BtrfsHeader(endian, (uint8_t*)diskArr.data());
 
-        cerr << "using rootTree at logical address: "  << rootTreelogAddr << " (transaction "
-             << rootHeader->getGeneration() << ")" << endl << endl;
+        //cerr << "using rootTree at logical address: "  << rootTreelogAddr << " (transaction "
+        //     << rootHeader->getGeneration() << ")" << endl << endl;
 
         //cerr << "DBG: CreatedRootHeader" << endl;
 
