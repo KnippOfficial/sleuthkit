@@ -188,8 +188,8 @@ namespace btrForensics{
                 addresses.push_back(temp);
             }
         } else if (type & BLOCK_FLAG_RAID10){
-            //TODO: takes only data of first RAID1
             numStripes = (uint64_t) floor(numStripes/2);
+            //TODO: CHECK IMPLEMENTATION
             for(int i=0; i<2; i++) {
                 uint64_t relative_position = (uint64_t) floor((logicalAddr - chunkLogical) / stripeLength);
                 device = (relative_position % numStripes) * 2 + i; //add +1 to use second RAID1

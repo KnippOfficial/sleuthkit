@@ -38,6 +38,8 @@ namespace btrForensics{
 
         uint64_t getID() const { return deviceId;};
         uint64_t getOffset() const { return offset;};
+        uint64_t getBytes() const { return bytes;};
+        uint64_t getBytesUsed() const { return bytesUsed;};
         UUID getUUID() const { return devUUID;};
         UUID getFSUUID() const { return fsUUID;};
 

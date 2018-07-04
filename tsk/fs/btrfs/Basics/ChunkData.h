@@ -53,6 +53,7 @@ namespace btrForensics {
         uint64_t getChunkSize() const {return chunkSize;};
 
         uint16_t getNumStripe() const { return numStripe;};
+        uint16_t getNumSubStripe() const {return subStripe;};
         uint64_t getBytesUsed() const { return bytesUsed;};
         UUID getUUID(int i) const { return deviceUUIDs.at(i); };
 

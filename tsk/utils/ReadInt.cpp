@@ -40,7 +40,7 @@ uint16_t read16Bit(TSK_ENDIAN_ENUM endian, const uint8_t *arr)
     }
     else if(endian == TSK_BIG_ENDIAN) {
         num += (uint16_t)*arr;
-        num += num << 8;
+        num = num << 8;
         num += (uint16_t)*(arr + 1);
     }
 

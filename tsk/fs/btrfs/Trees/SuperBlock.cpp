@@ -5,9 +5,12 @@
 //! SuperBlock implementation.
 
 #include <sstream>
+#include <iomanip>
 #include "SuperBlock.h"
 #include "../../../utils/ReadInt.h"
 #include "../Examiners/Functions.h"
+
+using namespace std;
 
 namespace btrForensics{
     
@@ -114,6 +117,12 @@ namespace btrForensics{
 
             backupRoots[i].tree_root_gen = read64Bit(endian, arr + arIndex);
             arIndex += 0x08;
+
+            backupRoots[i].chunk_root = read64Bit(endian, arr + arIndex);
+            arIndex += 0x08;
+
+            backupRoots[i].chunk_root_gen = read64Bit(endian, arr + arIndex);
+            arIndex += 0x08;
         }
 
         uint64_t bytesRead = 0;
@@ -129,6 +138,8 @@ namespace btrForensics{
         for(int i=0; i < BTRFS_NUM_BACKUP_ROOTS; i++){
             cout << i+1 << ". tree root at " << backupRoots[i].tree_root << " (generation: "
                  << backupRoots[i].tree_root_gen << ")" << endl;
+            cout << "\t\t\t" << "chunk tree root at " << backupRoots[i].chunk_root << " (generation: "
+                 << backupRoots[i].chunk_root_gen << ")" << endl;
         }
 
     }
@@ -137,6 +148,7 @@ namespace btrForensics{
     //!
     //! \return 8-byte chunk tree root physical address.
     //!
+    //TODO: remove?
     const vector<BTRFSPhyAddr> SuperBlock::getChunkPhyAddr() const
     {
         BtrfsKey key = chunkKey.at(0);
@@ -223,24 +235,25 @@ namespace btrForensics{
     //! Overloaded stream operator.
     std::ostream &operator<<(std::ostream &os, SuperBlock &supb)
     {
-        os << "File system UUID: " << supb.fsUUID.encode()
-            << std::uppercase << std::hex;
-        os << "\nRoot tree root address: 0x";
-        os.fill('0');
-        os.width(16);
-        os << supb.rootTrRootAddr;
-        os << "\nChunk tree root address: 0x";
-        os.width(16);
-        os << supb.chunkTrRootAddr;    
-        os << "\nLog tree root address: 0x";
-        os.width(16);
-        os << supb.logTrRootAddr << '\n';
-        os << std::dec;
-        os << '\n' << "Unit size:" << '\n';
-        os << "Sector\tNode\tLeaf\tStripe" << '\n';
-        os << supb.sectorSize << "\t" << supb.nodeSize << "\t" << 
-            supb.leafSize << "\t" << supb.stripeSize;
+        os << "Part of BTRFS pool:" << endl;
+        os << std::setw(25) << std::left <<"Label: " << supb.label << endl;
+        os << std::setw(25) << std::left <<"File system UUID: " << supb.fsUUID.encode() << endl;
+        os << std::setw(25) << std::left <<"Root tree root address: " << supb.rootTrRootAddr << endl;
+        os << std::setw(25) << std::left <<"Chunk tree root address:" << supb.chunkTrRootAddr << endl;
+        os << std::setw(25) << std::left <<"Log tree root address: " << supb.logTrRootAddr << endl;
+        os << std::setw(25) << std::left <<"Generation: " << supb.generation << endl;
+        os << std::setw(25) << std::left <<"Chunk root generation: " << supb.chunkRootGeneration << endl;
+        os << std::setw(25) << std::left <<"Total bytes: " << supb.totalBytes << endl;
+        os << std::setw(25) << std::left <<"Number of devices: " << supb.numDevices << endl;
+        //os << '\n' << "Unit size:" << '\n';
+        //os << "Sector\tNode\tLeaf\tStripe" << '\n';
+        //os << supb.sectorSize << "\t" << supb.nodeSize << "\t" <<
+        //    supb.leafSize << "\t" << supb.stripeSize;
         os << std::endl;
+        os << std::setw(25) << std::left << "Device UUID: " << supb.devItemData.getUUID().encode() << endl;
+        os << std::setw(25) << std::left << "Device ID: " << supb.devItemData.getID() << endl;
+        os << std::setw(25) << std::left << "Device total bytes: " << supb.devItemData.getBytes() << endl;
+        os << std::setw(25) << std::left << "Device total bytes used: " << supb.devItemData.getBytesUsed() << endl;
 
         return os;
     }

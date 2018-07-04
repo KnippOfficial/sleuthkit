@@ -44,6 +44,7 @@ BTRFS_POOL::BTRFS_POOL(TSK_POOL_INFO *pool)
             pool_guid = supblk->getDevData().getFSUUID().encode();
             superblock = new SuperBlock(TSK_LIT_ENDIAN, (uint8_t *) diskData.data());
             initialized = true;
+            //cout << *superblock << endl;
         }
 
         //TODO: check if device is part of pool

@@ -16,6 +16,7 @@
 //!
 UUID::UUID(TSK_ENDIAN_ENUM endian, uint8_t arr[])
 {
+    endian = TSK_BIG_ENDIAN;
     data_1 = read32Bit(endian, arr);
     data_2 = read16Bit(endian, arr + 4);
     data_3 = read16Bit(endian, arr + 6);
@@ -33,6 +34,7 @@ UUID::UUID(TSK_ENDIAN_ENUM endian, uint8_t arr[])
 //!
 UUID::UUID(TSK_ENDIAN_ENUM endian, gpt_entry &entry)
 {
+    endian = TSK_BIG_ENDIAN;
     data_1 = read32Bit(endian, entry.type_guid);
     data_2 = read16Bit(endian, entry.type_guid + 4);
     data_3 = read16Bit(endian, entry.type_guid + 6);
@@ -70,8 +72,8 @@ const std::string UUID::encode() const
         return "";
         
     std::ostringstream guidOSS;
-    //guidOSS.fill('\x00');
-    guidOSS << std::uppercase << std:: hex;
+    guidOSS.fill('0');
+    guidOSS << std::uppercase << std::hex;
 
     guidOSS.width(8);
     guidOSS << data_1 << '-';

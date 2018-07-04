@@ -63,7 +63,7 @@ int main(int argc, char **argv1) {
         tsk_fprintf(stderr, "Missing path to directory containing images\n");
         usage();
     }
-
+    //TODO: analyze only single device!!!
     pool_info = new TSK_POOL_INFO(TSK_LIT_ENDIAN, argv[1]);
     TSK_POOL* pool = pool_info->createPoolObject();
     cout << *pool << endl;
