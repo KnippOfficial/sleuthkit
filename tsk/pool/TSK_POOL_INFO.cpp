@@ -25,6 +25,9 @@ TSK_POOL_INFO::TSK_POOL_INFO(TSK_ENDIAN_ENUM endian, std::string pathToFolder)
         while ((ent = readdir(dir)) != nullptr) {
             if (ent->d_type != DT_DIR) {
                 std::string pathToFile = "";
+                if(pathToFile[0] == '.'){
+                    continue;
+                }
                 if (pathToFolder.back() == '/') {
                     pathToFile = (pathToFolder + ent->d_name);
                 } else {

@@ -260,20 +260,29 @@ namespace btrForensics{
         }
     }
 
+    //TODO: Does not belong into Examiners/Functions...
      char const* getRAIDFromFlag(uint64_t type){
+        char * result = new char[30];
+
         if(type & BLOCK_FLAG_RAID0){
-            return "RAID0";
+            strcpy(result, "RAID0");
         } else if(type & BLOCK_FLAG_RAID1){
-            return "RAID1";
+            strcpy(result, "RAID1");
         } else if(type & BLOCK_FLAG_RAID10){
-            return "RAID10";
+            strcpy(result, "RAID10");
         } else if(type & BLOCK_FLAG_RAID5) {
-            return "RAID5";
+            strcpy(result, "RAID5");
         } else if(type & BLOCK_FLAG_RAID6){
-            return "RAID6";
-        } else {
-            return "No RAID used";
+            strcpy(result, "RAID6");
+        } else{
+            strcpy(result, "Single");
         }
+
+        if(type & BLOCK_FLAG_DUPLICATE){
+            strcat(result, " (Duplicated)");
+        }
+
+        return result;
 
     }
 

@@ -88,7 +88,7 @@ namespace btrForensics{
         const std::string printMagic() const;
         const std::string printSpace() const;
         const std::string printLabel() const;
-        void printRootBackups() const;
+        void printRootBackups(std::ostream &os) const;
 
         static const int ADDR_OF_SPR_BLK = 0x10000;  //!< Address of superblock on disk.
         static const int SIZE_OF_SPR_BLK = 0xdcb;  //!< Size of superblock on disk.

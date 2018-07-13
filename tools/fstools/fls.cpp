@@ -32,7 +32,8 @@ usage()
 {
     TFPRINTF(stderr,
         _TSK_T
-        ("usage: %s [-adDFlpruvV] [-f fstype] [-i imgtype] [-b dev_sector_size] [-m dir/] [-o imgoffset] [-z ZONE] [-s seconds] [-t transaction] [-P] image [images] [inode]\n"),
+        ("usage: %s [-adDFlpruvV] [-f fstype] [-i imgtype] [-b dev_sector_size] [-m dir/] [-o imgoffset] [-z ZONE] "
+                 "[-s seconds] [-P] [-S sub_file_system] [-T transaction] image [images] [inode]\n"),
         progname);
     tsk_fprintf(stderr,
         "\tIf [inode] is not given, the root directory is used\n");
@@ -57,7 +58,10 @@ usage()
     tsk_fprintf(stderr, "\t-p: Display full path for each file\n");
     tsk_fprintf(stderr,
                 "\t-P: Analyze as pool (expect directory of pool members as input)\n");
-    tsk_fprintf(stderr, "\t-T: Specify transaction number to use\n");
+    tsk_fprintf(stderr,
+                "\t-S: Specify sub file system (only used for pools)\n");
+    tsk_fprintf(stderr,
+                "\t-T: Specify transaction or generation number to use\n");
     tsk_fprintf(stderr, "\t-r: Recurse on directory entries\n");
     tsk_fprintf(stderr, "\t-u: Display undeleted entries only\n");
     tsk_fprintf(stderr, "\t-v: verbose output to stderr\n");
@@ -87,6 +91,7 @@ main(int argc, char **argv1)
     extern int OPTIND;
     int fls_flags;
     int transaction = -1;
+    string sub_file_system = "";
     bool isPool = false;
     int32_t sec_skew = 0;
     static TSK_TCHAR *macpre = NULL;
@@ -194,6 +199,9 @@ main(int argc, char **argv1)
         case _TSK_T('s'):
             sec_skew = TATOI(OPTARG);
             break;
+        case _TSK_T('S'):
+            sub_file_system = OPTARG;
+            break;
         case _TSK_T('T'):
             transaction = TATOI(OPTARG);
             break;
@@ -234,11 +242,8 @@ main(int argc, char **argv1)
         TSK_POOL* pool = pool_info->createPoolObject();
 
         try {
-            if (OPTIND + 1 < argc) {
-                pool->fls(argv[OPTIND + 1], transaction);
-            } else {
-                pool->fls("", transaction);
-            }
+            pool->fls(sub_file_system, transaction);
+
         }
         catch (...) {
             cerr << "fls failed. Used an older transaction number?" << endl;

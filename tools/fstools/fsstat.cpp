@@ -24,7 +24,7 @@ usage()
 {
     TFPRINTF(stderr,
         _TSK_T
-        ("usage: %s [-tvV] [-d dataset] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] [-P] image [images]\n"),
+        ("usage: %s [-tvV] [-d dataset] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] [-P] [-F sub_file_system] [-T] image [images]\n"),
         progname);
     tsk_fprintf(stderr, "\t-t: display type only\n");
     tsk_fprintf(stderr,
@@ -37,9 +37,10 @@ usage()
         "\t-o imgoffset: The offset of the file system in the image (in sectors)\n");
     tsk_fprintf(stderr,
         "\t-P: Analyze as pool (expect directory of pool members as input)\n");
-    tsk_fprintf(stderr, "\t-T: Specify transaction number to use\n");
     tsk_fprintf(stderr,
-        "\t-F: Specify file system (can only be used for pools)\n");
+                "\t-S: Specify sub file system (only used for pools)\n");
+    tsk_fprintf(stderr,
+                "\t-T: Specify transaction or generation number to use\n");
     tsk_fprintf(stderr, "\t-v: verbose output to stderr\n");
     tsk_fprintf(stderr, "\t-V: Print version\n");
 
@@ -61,7 +62,7 @@ main(int argc, char **argv1)
     int ch;
     bool isPool = false;
     int transaction = -1;
-    string filesystem = "";
+    string sub_file_system = "";
     uint8_t type = 0;
     TSK_TCHAR **argv;
     unsigned int ssize = 0;
@@ -110,8 +111,8 @@ main(int argc, char **argv1)
                 usage();
             }
             break;
-        case _TSK_T('F'):
-            filesystem = OPTARG;
+        case _TSK_T('S'):
+            sub_file_system = OPTARG;
             break;
         case _TSK_T('i'):
             if (TSTRCMP(OPTARG, _TSK_T("list")) == 0) {
@@ -162,7 +163,7 @@ main(int argc, char **argv1)
         TSK_POOL* pool = pool_info->createPoolObject();
 
         try {
-                pool->fsstat(filesystem, transaction);
+                pool->fsstat(sub_file_system, transaction);
         }
         catch (...) {
             cerr << "fsstat failed. Used an older uberblock?" << endl;

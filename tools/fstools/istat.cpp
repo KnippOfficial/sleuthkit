@@ -32,7 +32,8 @@ usage()
 {
     TFPRINTF(stderr,
         _TSK_T
-        ("usage: %s [-B num] [-d dataset] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] [-z zone] [-s seconds] [-vV] [-P] image [images] inum\n"),
+        ("usage: %s [-B num] [-d dataset] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] [-z zone] "
+                 "[-s seconds] [-vV] [-P] [-S sub_filesystem] [-T transaction] image [images] inum\n"),
         progname);
     tsk_fprintf(stderr,
         "\t-B num: force the display of NUM address of block pointers\n");
@@ -49,9 +50,11 @@ usage()
     tsk_fprintf(stderr,
         "\t-o imgoffset: The offset of the file system in the image (in sectors)\n");
     tsk_fprintf(stderr,
-                "\t-F: Specify file system (can only be used for pools)\n");
+                "\t-S: Specify sub file system (can only be used for pools)\n");
     tsk_fprintf(stderr,
                 "\t-P: Analyze as pool (expect directory of pool members as input)\n");
+    tsk_fprintf(stderr,
+                "\t-T: Specify transaction or generation number to use\n");
     tsk_fprintf(stderr, "\t-T: Specify transaction number to use\n");
     tsk_fprintf(stderr, "\t-v: verbose output to stderr\n");
     tsk_fprintf(stderr, "\t-V: print version\n");
@@ -77,7 +80,7 @@ main(int argc, char **argv1)
     TSK_TCHAR *cp;
     int32_t sec_skew = 0;
     int istat_flags = 0;
-    string filesystem = "";
+    string sub_file_system = "";
 
     /* When > 0 this is the number of blocks to print, used for -B arg */
     TSK_DADDR_T numblock = 0;
@@ -137,9 +140,7 @@ main(int argc, char **argv1)
                 usage();
             }
             break;
-        case _TSK_T('F'):
-            filesystem = OPTARG;
-            break;
+
         case _TSK_T('i'):
             if (TSTRCMP(OPTARG, _TSK_T("list")) == 0) {
                 tsk_img_type_print(stderr);
@@ -163,6 +164,9 @@ main(int argc, char **argv1)
             break;
         case _TSK_T('s'):
             sec_skew = TATOI(OPTARG);
+            break;
+        case _TSK_T('S'):
+            sub_file_system = OPTARG;
             break;
         case _TSK_T('r'):
             istat_flags |= TSK_FS_ISTAT_RUNLIST;
@@ -202,7 +206,7 @@ main(int argc, char **argv1)
 
         try {
             if (OPTIND + 1 < argc) {
-                pool->istat(stoi(argv[OPTIND + 1]), filesystem, transaction);
+                pool->istat(stoi(argv[OPTIND + 1]), sub_file_system, transaction);
             } else {
                 cout << "Please specify an object number" << endl;
             }

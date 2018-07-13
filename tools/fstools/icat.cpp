@@ -35,7 +35,8 @@ usage()
 {
     TFPRINTF(stderr,
         _TSK_T
-        ("usage: %s [-hrRsvV] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] [-P] image [images] inum[-typ[-id]]\n"),
+        ("usage: %s [-hrRsvV] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] [-P] [-S sub_file_system]"
+                 "[-T transaction] image [images] inum[-typ[-id]]\n"),
         progname);
     tsk_fprintf(stderr, "\t-h: Do not display holes in sparse files\n");
     tsk_fprintf(stderr, "\t-r: Recover deleted file\n");
@@ -51,10 +52,11 @@ usage()
     tsk_fprintf(stderr,
         "\t-o imgoffset: The offset of the file system in the image (in sectors)\n");
     tsk_fprintf(stderr,
-                "\t-F: Specify file system (can only be used for pools)\n");
+                "\t-S: Specify sub file system (can only be used for pools)\n");
     tsk_fprintf(stderr,
-        "\t-P: Analyze as pool (expect directory of pool members as input)\n");
-    tsk_fprintf(stderr, "\t-T: Specify transaction number to use\n");
+                "\t-P: Analyze as pool (expect directory of pool members as input)\n");
+    tsk_fprintf(stderr,
+                "\t-T: Specify transaction or generation number to use\n");
     tsk_fprintf(stderr, "\t-v: verbose to stderr\n");
     tsk_fprintf(stderr, "\t-V: Print version\n");
 
@@ -80,7 +82,7 @@ main(int argc, char **argv1)
     uint8_t id_used = 0, type_used = 0;
     int retval;
     bool isPool = false;
-    string filesystem = "";
+    string sub_file_system = "";
     int transaction = -1;
     int suppress_recover_error = 0;
     TSK_TCHAR **argv;
@@ -130,9 +132,6 @@ main(int argc, char **argv1)
                 usage();
             }
             break;
-        case _TSK_T('F'):
-            filesystem = OPTARG;
-            break;
         case _TSK_T('h'):
             fw_flags |= TSK_FS_FILE_WALK_FLAG_NOSPARSE;
             break;
@@ -166,6 +165,9 @@ main(int argc, char **argv1)
         case _TSK_T('s'):
             fw_flags |= TSK_FS_FILE_WALK_FLAG_SLACK;
             break;
+        case _TSK_T('S'):
+            sub_file_system = OPTARG;
+            break;
         case _TSK_T('T'):
             transaction = TATOI(OPTARG);
             break;
@@ -189,7 +191,7 @@ main(int argc, char **argv1)
         TSK_POOL* pool = pool_info->createPoolObject();
         try {
             if (OPTIND + 1 < argc) {
-                pool->icat(stoi(argv[OPTIND + 1]), filesystem, transaction);
+                pool->icat(stoi(argv[OPTIND + 1]), sub_file_system, transaction);
             } else {
                 cout << "Please specify an object number" << endl;
             }

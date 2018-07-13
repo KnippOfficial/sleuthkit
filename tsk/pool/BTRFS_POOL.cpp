@@ -184,7 +184,7 @@ BTRFS_DEVICE *BTRFS_POOL::getDeviceByID(uint64_t id) const {
     return nullptr;
 }
 
-void BTRFS_POOL::displayChunkInformation() const {
+void BTRFS_POOL::printChunkInformation(std::ostream &os) const {
     if (examiner != nullptr) {
         examiner->chunkTree->chunkRoot;
         vector<const BtrfsItem *> foundChunks;
@@ -229,11 +229,11 @@ void BTRFS_POOL::displayChunkInformation() const {
             }
         }
 
-        cout << "System chunks: \t\t" << getRAIDFromFlag(system_chunks_type) << " (" << system_chunks_available << "/"
+        os << setw(20) << left << "System chunks:" << getRAIDFromFlag(system_chunks_type) << " (" << system_chunks_available << "/"
              << system_chunks << ")" << endl;
-        cout << "Metadata chunks: \t" << getRAIDFromFlag(metadata_chunks_type) << " (" << metadata_chunks_available << "/"
+        os << setw(20) << left << "Metadata chunks:" << getRAIDFromFlag(metadata_chunks_type) << " (" << metadata_chunks_available << "/"
              << metadata_chunks << ")" << endl;
-        cout << "Data chunks: \t\t\t\t" << getRAIDFromFlag(data_chunks_type) << " (" << data_chunks_available << "/"
+        os << setw(20) << left << "Data chunks:"  << getRAIDFromFlag(data_chunks_type) << " (" << data_chunks_available << "/"
              << data_chunks << ")" << endl;
     }
 }
@@ -277,19 +277,19 @@ bool BTRFS_POOL::isChunkDataAvailable(const ChunkItem *item) const {
 }
 
 void BTRFS_POOL::print(std::ostream &os) const {
-    os << "FSID: " << pool_guid << endl;
-    os << "Number of devices/stripes: " << no_all_devices << " (" << no_available_devices << " detected)" << endl;
+    os << setw(20) << left << "FSID: " << pool_guid << endl;
+    printChunkInformation(os);
+    os << setw(20) << left << "Number of devices: " << no_all_devices << " (" << no_available_devices << " detected)" << endl;
     os << "-------------------------------------------------" << endl;
     for (auto &it : devices) {
-        os << "ID: \t" << it->getID() << endl;
-        os << "GUID:\t" << it->getGUID() << endl;
+        os << setw(20) << left << "ID: \t" << it->getID() << endl;
+        os << setw(20) << left << "GUID:\t" << it->getGUID() << endl;
         os << endl;
     }
 
-    displayChunkInformation();
     //TODO: not only of one superblock
-    cout << endl << "Backup Roots:" << endl;
-    superblock->printRootBackups();
+    os << "Backup Roots:" << endl;
+    superblock->printRootBackups(os);
 
 
     /*DBG CODE
@@ -312,7 +312,6 @@ void BTRFS_POOL::fsstat(string str_dataset, int uberblock) {
     cout << *superblock << endl;
     cout << superblock->printSpace() << endl;
     cout << endl;
-    cout << "Label: " << superblock->printLabel() << endl;
 
     vector<const BtrfsItem *> foundRootRefs;
     examiner->treeTraverse(examiner->rootTree, [&foundRootRefs](const LeafNode *leaf) {
@@ -321,6 +320,7 @@ void BTRFS_POOL::fsstat(string str_dataset, int uberblock) {
 
     if (foundRootRefs.size() == 0) {
         cout << "\nNo subvolumes or snapshots are found.\n" << endl;
+        return;
     }
 
     cout << "The following subvolumes or snapshots are found:" << endl;
@@ -331,9 +331,9 @@ void BTRFS_POOL::fsstat(string str_dataset, int uberblock) {
     }
 }
 
-void BTRFS_POOL::fls(string str_dataset, int uberblock) {
+void BTRFS_POOL::fls(string sub_file_system, int generation) {
     uint64_t fsTreeID = 0;
-    if (str_dataset != "") {
+    if (sub_file_system != "") {
         vector<const BtrfsItem *> foundRootRefs;
         examiner->treeTraverse(examiner->rootTree, [&foundRootRefs](const LeafNode *leaf) {
             filterItems(leaf, ItemType::ROOT_BACKREF, foundRootRefs);
@@ -341,13 +341,13 @@ void BTRFS_POOL::fls(string str_dataset, int uberblock) {
 
         for (auto item : foundRootRefs) {
             const RootRef *ref = static_cast<const RootRef *>(item);
-            if (ref->getDirName() == str_dataset) {
+            if (ref->getDirName() == sub_file_system) {
                 fsTreeID = ref->getId();
             }
         }
 
         if (fsTreeID == 0) {
-            cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
+            cerr << "Could not find subvolume/snapshot named " << sub_file_system << " using root instead!" << endl;
         } else {
             examiner->reInitializeFSTree(fsTreeID);
         }
@@ -358,9 +358,9 @@ void BTRFS_POOL::fls(string str_dataset, int uberblock) {
 }
 
 
-void BTRFS_POOL::istat(int object_number, string str_dataset, int uberblock) {
+void BTRFS_POOL::istat(int object_number, string sub_file_system, int generation) {
     uint64_t fsTreeID = 0;
-    if (str_dataset != "") {
+    if (sub_file_system != "") {
         vector<const BtrfsItem *> foundRootRefs;
         examiner->treeTraverse(examiner->rootTree, [&foundRootRefs](const LeafNode *leaf) {
             filterItems(leaf, ItemType::ROOT_BACKREF, foundRootRefs);
@@ -368,13 +368,13 @@ void BTRFS_POOL::istat(int object_number, string str_dataset, int uberblock) {
 
         for (auto item : foundRootRefs) {
             const RootRef *ref = static_cast<const RootRef *>(item);
-            if (ref->getDirName() == str_dataset) {
+            if (ref->getDirName() == sub_file_system) {
                 fsTreeID = ref->getId();
             }
         }
 
         if (fsTreeID == 0) {
-            cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
+            cerr << "Could not find subvolume/snapshot named " << sub_file_system << " using root instead!" << endl;
         } else {
             examiner->reInitializeFSTree(fsTreeID);
         }
@@ -385,9 +385,9 @@ void BTRFS_POOL::istat(int object_number, string str_dataset, int uberblock) {
     examiner->fsTree->showInodeInfo(object_number, cout);
 }
 
-void BTRFS_POOL::icat(int object_number, string str_dataset, int uberblock) {
+void BTRFS_POOL::icat(int object_number, string sub_file_system, int generation) {
     uint64_t fsTreeID = 0;
-    if (str_dataset != "") {
+    if (sub_file_system != "") {
         vector<const BtrfsItem *> foundRootRefs;
         examiner->treeTraverse(examiner->rootTree, [&foundRootRefs](const LeafNode *leaf) {
             filterItems(leaf, ItemType::ROOT_BACKREF, foundRootRefs);
@@ -395,13 +395,13 @@ void BTRFS_POOL::icat(int object_number, string str_dataset, int uberblock) {
 
         for (auto item : foundRootRefs) {
             const RootRef *ref = static_cast<const RootRef *>(item);
-            if (ref->getDirName() == str_dataset) {
+            if (ref->getDirName() == sub_file_system) {
                 fsTreeID = ref->getId();
             }
         }
 
         if (fsTreeID == 0) {
-            cerr << "Could not find subvolume/snapshot named " << str_dataset << " using root instead!" << endl;
+            cerr << "Could not find subvolume/snapshot named " << sub_file_system << " using root instead!" << endl;
         } else {
             examiner->reInitializeFSTree(fsTreeID);
         }

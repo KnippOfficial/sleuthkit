@@ -134,11 +134,11 @@ namespace btrForensics{
     }
 
 
-    void SuperBlock::printRootBackups() const {
+    void SuperBlock::printRootBackups(std::ostream &os) const {
         for(int i=0; i < BTRFS_NUM_BACKUP_ROOTS; i++){
-            cout << i+1 << ". tree root at " << backupRoots[i].tree_root << " (generation: "
+            os << i+1 << setw(24) << left << ". tree root at " << backupRoots[i].tree_root << " (generation: "
                  << backupRoots[i].tree_root_gen << ")" << endl;
-            cout << "\t\t\t" << "chunk tree root at " << backupRoots[i].chunk_root << " (generation: "
+            os << setw(25) << right << "chunk tree root at " << backupRoots[i].chunk_root << " (generation: "
                  << backupRoots[i].chunk_root_gen << ")" << endl;
         }
 
@@ -235,7 +235,7 @@ namespace btrForensics{
     //! Overloaded stream operator.
     std::ostream &operator<<(std::ostream &os, SuperBlock &supb)
     {
-        os << "Part of BTRFS pool:" << endl;
+        //os << "Part of BTRFS pool:" << endl;
         os << std::setw(25) << std::left <<"Label: " << supb.label << endl;
         os << std::setw(25) << std::left <<"File system UUID: " << supb.fsUUID.encode() << endl;
         os << std::setw(25) << std::left <<"Root tree root address: " << supb.rootTrRootAddr << endl;
