@@ -24,7 +24,7 @@ usage()
 {
     TFPRINTF(stderr,
         _TSK_T
-        ("usage: %s [-tvV] [-d dataset] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] [-P] [-F sub_file_system] [-T] image [images]\n"),
+        ("usage: %s [-tvV] [-d dataset] [-f fstype] [-i imgtype] [-b dev_sector_size] [-o imgoffset] [-P] [-S sub_file_system] [-T] image [images]\n"),
         progname);
     tsk_fprintf(stderr, "\t-t: display type only\n");
     tsk_fprintf(stderr,
@@ -82,7 +82,7 @@ main(int argc, char **argv1)
     progname = argv[0];
     setlocale(LC_ALL, "");
 
-    while ((ch = GETOPT(argc, argv, _TSK_T("b:f:F:i:o:tT:vV:P"))) > 0) {
+    while ((ch = GETOPT(argc, argv, _TSK_T("b:f:i:o:tT:S:vV:P"))) > 0) {
         switch (ch) {
         case _TSK_T('?'):
         default:

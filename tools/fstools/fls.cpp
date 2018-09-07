@@ -116,7 +116,7 @@ main(int argc, char **argv1)
     fls_flags = TSK_FS_FLS_DIR | TSK_FS_FLS_FILE;
 
     while ((ch =
-            GETOPT(argc, argv, _TSK_T("ab:dDf:Fi:m:lo:Pprs:T:uvVz:"))) > 0) {
+            GETOPT(argc, argv, _TSK_T("ab:dDf:Fi:m:lo:Pprs:S:T:uvVz:"))) > 0) {
         switch (ch) {
         case _TSK_T('?'):
         default:

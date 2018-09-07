@@ -103,7 +103,7 @@ main(int argc, char **argv1)
     progname = argv[0];
     setlocale(LC_ALL, "");
 
-    while ((ch = GETOPT(argc, argv, _TSK_T("b:f:F:hi:o:PrRsT:vV"))) > 0) {
+    while ((ch = GETOPT(argc, argv, _TSK_T("b:f:F:hi:o:PrR:S:sT:vV"))) > 0) {
         switch (ch) {
         case _TSK_T('?'):
         default:
