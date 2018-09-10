@@ -267,6 +267,8 @@ void ZFS_POOL::print(std::ostream &os) const {
     for (int i = 0; i < vdevs.size(); i++) {
         os << *vdevs.at(i);
     }
+
+    os << *uberblock_array << endl;
 }
 
 ostream &operator<<(ostream &os, const ZFS_POOL &pool) {
