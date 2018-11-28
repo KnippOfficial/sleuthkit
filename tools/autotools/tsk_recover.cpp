@@ -50,7 +50,7 @@ usage()
 
 class TskRecover:public TskAuto {
 public:
-    TskRecover(TSK_TCHAR * a_base_dir);
+    explicit TskRecover(TSK_TCHAR * a_base_dir);
     virtual TSK_RETVAL_ENUM processFile(TSK_FS_FILE * fs_file, const char *path);
     virtual TSK_FILTER_ENUM filterVol(const TSK_VS_PART_INFO * vs_part);
     virtual TSK_FILTER_ENUM filterFs(TSK_FS_INFO * fs_info);
@@ -89,13 +89,14 @@ uint8_t TskRecover::handleError()
  * Callback used to walk file content and write the results to the recovery file.
  */
 static TSK_WALK_RET_ENUM
-file_walk_cb(TSK_FS_FILE * a_fs_file, TSK_OFF_T a_off, TSK_DADDR_T a_addr,
-    char *a_buf, size_t a_len, TSK_FS_BLOCK_FLAG_ENUM a_flags, void *a_ptr)
+file_walk_cb(TSK_FS_FILE * a_fs_file, TSK_OFF_T a_off,
+    TSK_DADDR_T a_addr, char *a_buf, size_t a_len,
+    TSK_FS_BLOCK_FLAG_ENUM a_flags, void *a_ptr)
 {
     //write to the file
 #ifdef TSK_WIN32
     DWORD written = 0;
-    if (!WriteFile((HANDLE) a_ptr, a_buf, a_len, &written, NULL)) {
+    if (!WriteFile((HANDLE) a_ptr, a_buf, (DWORD)a_len, &written, NULL)) {
         fprintf(stderr, "Error writing file content\n");
         return TSK_WALK_ERROR;
     }
@@ -172,7 +173,7 @@ uint8_t TskRecover::writeFile(TSK_FS_FILE * a_fs_file, const char *a_path)
             }
             BOOL
                 result = CreateDirectoryW((LPCTSTR) path16full, NULL);
-            if (!result) {
+            if (result == FALSE) {
                 if (GetLastError() == ERROR_PATH_NOT_FOUND) {
                     fprintf(stderr, "Error Creating Directory (%S)", path16full);
                     return 1;
@@ -328,7 +329,7 @@ TSK_RETVAL_ENUM TskRecover::processFile(TSK_FS_FILE * fs_file, const char *path)
         return TSK_OK;
     else if ((isNtfsSystemFiles(fs_file, path)) || (isFATSystemFiles(fs_file)))
         return TSK_OK;
-    else if ((!fs_file->meta) || (fs_file->meta->size == 0))
+    else if ((fs_file->meta == NULL) || (fs_file->meta->size == 0))
         return TSK_OK;
 
     writeFile(fs_file, path);
@@ -337,7 +338,7 @@ TSK_RETVAL_ENUM TskRecover::processFile(TSK_FS_FILE * fs_file, const char *path)
 
 
 TSK_FILTER_ENUM
-TskRecover::filterVol(const TSK_VS_PART_INFO * vs_part)
+TskRecover::filterVol(const TSK_VS_PART_INFO * /*vs_part*/)
 {
     /* Set the flag to show that we have a volume system so that we
      * make a volume directory. */

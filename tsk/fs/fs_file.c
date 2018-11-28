@@ -127,7 +127,7 @@ tsk_fs_file_open_meta(TSK_FS_INFO * a_fs,
 
     if (a_fs->file_add_meta(a_fs, fs_file, a_addr)) {
         if (a_fs_file == NULL)
-            free(fs_file);
+            tsk_fs_file_close(fs_file);
         return NULL;
     }
 
@@ -651,7 +651,7 @@ tsk_fs_file_hash_calc(TSK_FS_FILE * a_fs_file,
         TSK_MD5_Final(a_hash_results->md5_digest,
             &(hash_data.md5_context));
     }
-    if (a_flags & TSK_BASE_HASH_MD5) {
+    if (a_flags & TSK_BASE_HASH_SHA1) {
         TSK_SHA_Final(a_hash_results->sha1_digest,
             &(hash_data.sha1_context));
     }

@@ -130,12 +130,11 @@ gpt_load_table(TSK_VS_INFO * vs, GPT_LOCATION_ENUM gpt_type)
     }
 
     // now that we checked the sig, lets make the meta  entries
-    if ((safe_str = tsk_malloc(16)) == NULL) {
-        free(sect_buf);
-        return 1;
-    }
-
-    if(gpt_type == PRIMARY_TABLE){
+    if (gpt_type == PRIMARY_TABLE) {
+        if ((safe_str = tsk_malloc(16)) == NULL) {
+            free(sect_buf);
+            return 1;
+        }
         snprintf(safe_str, 16, "Safety Table");
         if (NULL == tsk_vs_part_add(vs, (TSK_DADDR_T) 0, (TSK_DADDR_T) 1,
                 TSK_VS_PART_FLAG_META, safe_str, -1, -1)) {
@@ -309,6 +308,13 @@ tsk_vs_gpt_open(TSK_IMG_INFO * img_info, TSK_DADDR_T offset)
     // clean up any errors that are lying around
     tsk_error_reset();
 
+    if (img_info->sector_size == 0) {
+        tsk_error_reset();
+        tsk_error_set_errno(TSK_ERR_VS_ARG);
+        tsk_error_set_errstr("tsk_vs_gpt_open: sector size is 0");
+        return NULL;
+    }
+
     vs = (TSK_VS_INFO *) tsk_malloc(sizeof(*vs));
     if (vs == NULL)
         return NULL;
@@ -332,6 +338,7 @@ tsk_vs_gpt_open(TSK_IMG_INFO * img_info, TSK_DADDR_T offset)
 
     /* Load the partitions into the sorted list */
     if (gpt_load_table(vs, PRIMARY_TABLE)) {
+        tsk_vs_part_free(vs);
         int found = 0;
         if (tsk_verbose)
             tsk_fprintf(stderr, "gpt_open: Trying other sector sizes\n");
@@ -344,6 +351,7 @@ tsk_vs_gpt_open(TSK_IMG_INFO * img_info, TSK_DADDR_T offset)
                     vs->block_size);
 
             if (gpt_load_table(vs, PRIMARY_TABLE)) {
+                tsk_vs_part_free(vs);
                 vs->block_size *= 2;
                 continue;
             }
@@ -360,6 +368,7 @@ tsk_vs_gpt_open(TSK_IMG_INFO * img_info, TSK_DADDR_T offset)
             if(gpt_load_table(vs, SECONDARY_TABLE)){
 
                 /* Try other sector sizes again */
+                tsk_vs_part_free(vs);
                 vs->block_size = 512;
                 while (vs->block_size <= 8192) {
                     if (tsk_verbose)
@@ -367,6 +376,7 @@ tsk_vs_gpt_open(TSK_IMG_INFO * img_info, TSK_DADDR_T offset)
                             vs->block_size);
 
                     if (gpt_load_table(vs, SECONDARY_TABLE)) {
+                        tsk_vs_part_free(vs);
                         vs->block_size *= 2;
                         continue;
                     }

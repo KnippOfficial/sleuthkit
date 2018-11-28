@@ -266,10 +266,10 @@ JNIEXPORT jlong JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_commitAddImgNa
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
  * Method:    openImgNat
- * Signature: ([Ljava/lang/String;I)J
+ * Signature: ([Ljava/lang/String;II)J
  */
 JNIEXPORT jlong JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_openImgNat
-  (JNIEnv *, jclass, jobjectArray, jint);
+  (JNIEnv *, jclass, jobjectArray, jint, jint);
 
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
@@ -461,6 +461,17 @@ extern "C" {
 
 #ifndef _Included_org_sleuthkit_datamodel_SleuthkitJNI_CaseDbHandle_AddImageProcess
 #define _Included_org_sleuthkit_datamodel_SleuthkitJNI_CaseDbHandle_AddImageProcess
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class org_sleuthkit_datamodel_SleuthkitJNI_HandleCache */
+
+#ifndef _Included_org_sleuthkit_datamodel_SleuthkitJNI_HandleCache
+#define _Included_org_sleuthkit_datamodel_SleuthkitJNI_HandleCache
 #ifdef __cplusplus
 extern "C" {
 #endif

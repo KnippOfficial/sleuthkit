@@ -223,7 +223,7 @@ TSK_HDB_INFO *
         else {
             fclose(hIdx);
         }
-        hdb_info = idxonly_open(db_path);
+        hdb_info = idxonly_open(db_path, file_path);
         break;
     case TSK_HDB_DBTYPE_SQLITE_ID: 
         if (NULL != hDb) {
@@ -237,9 +237,7 @@ TSK_HDB_INFO *
         break;
     }
 
-    if (NULL != db_path) {
-        free(db_path);
-    }
+    free(db_path);
 
     return hdb_info;
 }
@@ -366,6 +364,13 @@ uint8_t
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_HDB_ARG);
         tsk_error_set_errstr("tsk_hdb_make_index: NULL hdb_info");
+        return 1;
+    }
+
+    if (hdb_info->make_index == NULL) {
+        tsk_error_reset();
+        tsk_error_set_errno(TSK_ERR_HDB_ARG);
+        tsk_error_set_errstr("tsk_hdb_make_index: can not create index file");
         return 1;
     }
 

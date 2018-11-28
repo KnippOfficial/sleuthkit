@@ -28,7 +28,8 @@ using std::ostream;
 using std::vector;
 using std::string;
 
-#define TSK_SCHEMA_VER 7
+#define TSK_SCHEMA_VER 8
+#define TSK_SCHEMA_MINOR_VER 1
 
 /**
  * Values for the type column in the tsk_objects table. 
@@ -198,7 +199,7 @@ class TskDb {
     virtual bool inTransaction() = 0;
     virtual bool dbExists() = 0;
 
-    virtual bool getParentPathAndName(const char *path, char **ret_parent_path, char **ret_name);
+    virtual bool getParentPathAndName(const char *path, const char **ret_parent_path, const char **ret_name);
 
     //query methods / getters
     virtual TSK_RETVAL_ENUM getFileLayouts(vector<TSK_DB_FILE_LAYOUT_RANGE> & fileLayouts) = 0;

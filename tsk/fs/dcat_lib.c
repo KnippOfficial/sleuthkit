@@ -58,8 +58,7 @@ tsk_fs_blkcat(TSK_FS_INFO * fs, TSK_FS_BLKCAT_FLAG_ENUM lclflags,
     TSK_DADDR_T addr, TSK_DADDR_T read_num_units)
 {
     char *buf;
-    ssize_t cnt;
-    int i;
+    TSK_DADDR_T i;
 
     if (lclflags & TSK_FS_BLKCAT_STAT) {
         stats(fs);
@@ -103,6 +102,7 @@ tsk_fs_blkcat(TSK_FS_INFO * fs, TSK_FS_BLKCAT_FLAG_ENUM lclflags,
         return 1;
 
     for (i = 0; i < read_num_units; i++) {
+        ssize_t cnt;
 
         /* Read the block */
         cnt = tsk_fs_read_block(fs, addr + i, buf, fs->block_size);
@@ -115,7 +115,6 @@ tsk_fs_blkcat(TSK_FS_INFO * fs, TSK_FS_BLKCAT_FLAG_ENUM lclflags,
                 PRIuDADDR, addr);
             return 1;
         }
-
 
         /* do a hexdump like printout */
         if (lclflags & TSK_FS_BLKCAT_HEX) {
@@ -174,7 +173,6 @@ tsk_fs_blkcat(TSK_FS_INFO * fs, TSK_FS_BLKCAT_FLAG_ENUM lclflags,
                 tsk_printf("\n");
             }
         }
-
 
         /* print in all ASCII */
         else if (lclflags & TSK_FS_BLKCAT_ASCII) {

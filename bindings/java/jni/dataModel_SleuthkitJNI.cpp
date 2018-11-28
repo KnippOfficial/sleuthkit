@@ -3,7 +3,7 @@
  ** The Sleuth Kit 
  **
  ** Brian Carrier [carrier <at> sleuthkit [dot] org]
- ** Copyright (c) 2010-2014 Brian Carrier.  All Rights reserved
+ ** Copyright (c) 2010-2018 Brian Carrier.  All Rights reserved
  **
  ** This software is distributed under the Common Public License 1.0
  **
@@ -170,7 +170,7 @@ static TSK_FS_FILE *
 castFsFile(JNIEnv * env, jlong ptr)
 {
 	TSK_FS_FILE *lcl = (TSK_FS_FILE *)ptr;
-	if (!lcl || lcl->tag != TSK_FS_FILE_TAG) {
+	if (lcl == NULL || lcl->tag != TSK_FS_FILE_TAG) {
 		setThrowTskCoreError(env, "Invalid FS_FILE object");
 		return 0;
 	}
@@ -200,7 +200,7 @@ static TskCaseDb *
 castCaseDb(JNIEnv * env, jlong ptr)
 {
     TskCaseDb *lcl = ((TskCaseDb *) ptr);
-    if (!lcl || lcl->m_tag != TSK_CASE_DB_TAG) {
+    if (lcl == NULL || lcl->m_tag != TSK_CASE_DB_TAG) {
         setThrowTskCoreError(env,
             "Invalid TskCaseDb object");
         return 0;
@@ -968,7 +968,7 @@ JNIEXPORT jlong JNICALL
  * @return A pointer to the process (TskAutoDb object) or NULL on error.
  */
 JNIEXPORT jlong JNICALL
-    Java_org_sleuthkit_datamodel_SleuthkitJNI_initializeAddImgNat(JNIEnv * env, jclass obj, 
+Java_org_sleuthkit_datamodel_SleuthkitJNI_initializeAddImgNat(JNIEnv * env, jclass obj,
     jlong caseHandle, jstring timeZone, jboolean addFileSystems, jboolean addUnallocSpace, jboolean skipFatFsOrphans) {
     jboolean isCopy;
 
@@ -1015,7 +1015,8 @@ JNIEXPORT jlong JNICALL
     tskAuto->setAddFileSystems(addFileSystems?true:false);
     if (addFileSystems) {
         if (addUnallocSpace) {
-            tskAuto->setAddUnallocSpace(true, 500*1024*1024);
+            // Minimum size of unalloc files: 500 MB, maximum size: 1 GB
+            tskAuto->setAddUnallocSpace((int64_t)500 * 1024 * 1024, (int64_t)1024 * 1024 * 1024);
         }
         else {
             tskAuto->setAddUnallocSpace(false);
@@ -1311,16 +1312,17 @@ JNIEXPORT jlong JNICALL
 
 
 /*
- * Open an image pointer for the given image
+ * Open an image pointer for the given image.
  * @return the created TSK_IMG_INFO pointer
  * @param env pointer to java environment this was called from
  * @param obj the java object this was called from
  * @param paths the paths to the image parts
  * @param num_imgs number of image parts
+ * @param sector_size the sector size (use '0' for autodetect)
  */
 JNIEXPORT jlong JNICALL
     Java_org_sleuthkit_datamodel_SleuthkitJNI_openImgNat(JNIEnv * env,
-    jclass obj, jobjectArray paths, jint num_imgs) {
+    jclass obj, jobjectArray paths, jint num_imgs, jint sector_size) {
     TSK_IMG_INFO *img_info;
     jboolean isCopy;
 
@@ -1341,7 +1343,7 @@ JNIEXPORT jlong JNICALL
     // open the image
     img_info =
         tsk_img_open_utf8((int) num_imgs, imagepaths8, TSK_IMG_TYPE_DETECT,
-        0);
+        sector_size);
     if (img_info == NULL) {
         setThrowTskCoreError(env, tsk_error_get());
     }

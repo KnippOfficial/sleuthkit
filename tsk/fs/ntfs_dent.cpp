@@ -211,25 +211,23 @@ ntfs_orphan_map_free(NTFS_INFO * a_ntfs)
 /* inode_walk callback that is used to populate the orphan_map
  * structure in NTFS_INFO */
 static TSK_WALK_RET_ENUM
-ntfs_parent_act(TSK_FS_FILE * fs_file, void *ptr)
+ntfs_parent_act(TSK_FS_FILE * fs_file, void * /*ptr*/)
 {
     NTFS_INFO *ntfs = (NTFS_INFO *) fs_file->fs_info;
     TSK_FS_META_NAME_LIST *fs_name_list;
 
     if ((fs_file->meta->flags & TSK_FS_META_FLAG_ALLOC) &&
         fs_file->meta->type == TSK_FS_META_TYPE_REG) {
-            if (ntfs->alloc_file_count == -1)
-                ntfs->alloc_file_count = 1;
-            else
-                ntfs->alloc_file_count++;
+        ++ntfs->alloc_file_count;
     }
 
     /* go through each file name structure */
     fs_name_list = fs_file->meta->name2;
     while (fs_name_list) {
         if (ntfs_parent_map_add(ntfs, fs_name_list,
-                fs_file->meta))
+                fs_file->meta)) {
             return TSK_WALK_ERROR;
+        }
         fs_name_list = fs_name_list->next;
     }
     return TSK_WALK_CONT;
@@ -751,7 +749,6 @@ ntfs_dir_open_meta(TSK_FS_INFO * a_fs, TSK_FS_DIR ** a_fs_dir,
     ntfs_idxroot *idxroot;
     ntfs_idxelist *idxelist;
     ntfs_idxrec *idxrec_p, *idxrec;
-    int off;
     TSK_OFF_T idxalloc_len;
     TSK_FS_LOAD_FILE load_file;
 
@@ -995,6 +992,7 @@ ntfs_dir_open_meta(TSK_FS_INFO * a_fs, TSK_FS_DIR ** a_fs_dir,
         }
     }
     else {
+        int off;
 
         if (fs_attr_idx->flags & TSK_FS_ATTR_RES) {
             tsk_error_reset();
@@ -1389,7 +1387,6 @@ ntfs_find_file_rec(TSK_FS_INFO * fs, NTFS_DINFO * dinfo,
     uint8_t decrem = 0;
     size_t len = 0, i;
     char *begin = NULL;
-    int retval;
 
 
     if (fs_name_list->par_inode < fs->first_inum ||
@@ -1416,6 +1413,7 @@ ntfs_find_file_rec(TSK_FS_INFO * fs, NTFS_DINFO * dinfo,
     if (( ! TSK_FS_IS_DIR_META(fs_file_par->meta->type))
         || (fs_file_par->meta->seq != fs_name_list->par_seq)) {
         const char *str = TSK_FS_ORPHAN_STR;
+        int retval;
         len = strlen(str);
 
         /* @@@ There should be a sanity check here to verify that the
@@ -1681,7 +1679,7 @@ ntfs_find_file(TSK_FS_INFO * fs, TSK_INUM_T inode_toid, uint32_t type_toid,
 
 
 int
-ntfs_name_cmp(TSK_FS_INFO * a_fs_info, const char *s1, const char *s2)
+ntfs_name_cmp(TSK_FS_INFO * /*a_fs_info*/, const char *s1, const char *s2)
 {
     return strcasecmp(s1, s2);
 }

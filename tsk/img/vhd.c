@@ -86,13 +86,12 @@ vhdi_image_read(TSK_IMG_INFO * img_info, TSK_OFF_T offset, char *buf,
 static void
 vhdi_image_imgstat(TSK_IMG_INFO * img_info, FILE * hFile)
 {
-    IMG_VHDI_INFO *vhdi_info = (IMG_VHDI_INFO *) img_info;
-
     tsk_fprintf(hFile, "IMAGE FILE INFORMATION\n");
     tsk_fprintf(hFile, "--------------------------------------------\n");
     tsk_fprintf(hFile, "Image Type:\t\tvhdi\n");
     tsk_fprintf(hFile, "\nSize of data in bytes:\t%" PRIuOFF "\n",
         img_info->size);
+    tsk_fprintf(hFile, "Sector size:\t%d\n", img_info->sector_size);
 
     return;
 }
@@ -147,7 +146,6 @@ vhdi_open(int a_num_img,
 {
     char error_string[TSK_VHDI_ERROR_STRING_SIZE];
     libvhdi_error_t *vhdi_error = NULL;
-    int result = 0;
     int i;
 
     IMG_VHDI_INFO *vhdi_info = NULL;
@@ -204,7 +202,7 @@ vhdi_open(int a_num_img,
 #if defined( TSK_WIN32 )
     if( libvhdi_check_file_signature_wide((const wchar_t *) vhdi_info->img_info.images[0], &vhdi_error ) != 1 )
 #else
-    if( libvhdi_check_file_signature((const char *) vhdi_info->images[0], &vhdi_error) != 1)
+    if( libvhdi_check_file_signature((const char *) vhdi_info->img_info.images[0], &vhdi_error) != 1)
 #endif
 	{
         tsk_error_reset();
@@ -229,7 +227,7 @@ vhdi_open(int a_num_img,
             LIBVHDI_OPEN_READ, &vhdi_error) != 1)
 #else
     if (libvhdi_file_open(vhdi_info->handle,
-            (const char *) vhdi_info->images[0],
+            (const char *) vhdi_info->img_info.images[0],
             LIBVHDI_OPEN_READ, &vhdi_error) != 1)
 #endif
     {

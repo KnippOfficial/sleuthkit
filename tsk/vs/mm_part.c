@@ -179,8 +179,7 @@ tsk_vs_part_free(TSK_VS_INFO * a_vs)
     TSK_VS_PART_INFO *part2;
 
     while (part) {
-        if (part->desc)
-            free(part->desc);
+        free(part->desc);
         part->tag = 0;
         part2 = part->next;
         free(part);
@@ -273,6 +272,7 @@ tsk_vs_part_walk(TSK_VS_INFO * a_vs, TSK_PNUM_T a_start, TSK_PNUM_T a_last,
     for (part = a_vs->part_list; part != NULL; part = part->next) {
         if ((part->addr >= a_start) && ((part->flags & a_flags) != 0)) {
             switch (a_action(a_vs, part, a_ptr)) {
+            case TSK_WALK_CONT:   break;
             case TSK_WALK_STOP:   return 0;
             case TSK_WALK_ERROR:  return 1;
             }

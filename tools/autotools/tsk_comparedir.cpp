@@ -246,7 +246,7 @@ TskCompareDir::processFile(TSK_FS_FILE * a_fs_file, const char *a_path)
 }
 
 TSK_FILTER_ENUM
-TskCompareDir::filterVol(const TSK_VS_PART_INFO * a_vs_part)
+TskCompareDir::filterVol(const TSK_VS_PART_INFO * /*a_vs_part*/)
 {
     fprintf(stderr, "Error: volume system detected.  You must specify a specific file system using '-o'\n");
     return TSK_FILTER_STOP;
@@ -283,16 +283,17 @@ uint8_t
     if (processLclDir(_TSK_T("")))
         return 1;
 
-    if (!m_missDirFile)
+    if (m_missDirFile == false) {
         printf("All files in directory found in image\n");
+    }
 
     if (m_filesInImg.begin() == m_filesInImg.end()) {
         printf("All files in image found in directory\n");
     }
     else {
         std::set < char *, ltstr >::iterator it;
-        for (it = m_filesInImg.begin(); it != m_filesInImg.end(); it++)
-            printf("file: %s not found in directory\n",
+        for (it = m_filesInImg.begin(); it != m_filesInImg.end(); ++it)
+            printf("file: %" PRIttocTSK " not found in directory\n",
                 (TSK_TCHAR *) * it);
     }
 

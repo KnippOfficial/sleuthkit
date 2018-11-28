@@ -10,21 +10,14 @@
 
 /**
 * \file db_postgresql.cpp
-* Contains code to perform operations against PostgreSQL database. 
+* Contains code to perform operations against PostgreSQL database.
 */
-
-#ifdef HAVE_POSTGRESQL
-
+#include "tsk_db.h"
+#ifdef HAVE_LIBPQ_
 #include "tsk_db_postgresql.h"
-
-#ifdef TSK_WIN32
-
-#define atoll(S) _atoi64(S)
-
 #include <string.h>
 #include <sstream>
 #include <algorithm>
-#include <cstdint>
 #include "guid.h"
 
 using std::stringstream;
@@ -35,8 +28,14 @@ TskDbPostgreSQL::TskDbPostgreSQL(const TSK_TCHAR * a_dbFilePath, bool a_blkMapFl
     : TskDb(a_dbFilePath, a_blkMapFlag)
 {
     conn = NULL;
-    wcsncpy(m_dBName, a_dbFilePath, MAX_CONN_INFO_FIELD_LENGTH - 1);
+	snprintf(m_dBName, MAX_CONN_INFO_FIELD_LENGTH - 1, "%" PRIttocTSK "", a_dbFilePath);
     m_blkMapFlag = a_blkMapFlag;
+
+	strcpy(userName, "");
+	strcpy(password, "");
+	strcpy(hostNameOrIpAddr, "");
+	strcpy(hostPort, "");
+
 }
 
 TskDbPostgreSQL::~TskDbPostgreSQL()
@@ -74,35 +73,35 @@ TSK_RETVAL_ENUM TskDbPostgreSQL::verifyConnectionInfoStringLengths(size_t userNa
     if (userNameStrLen >= MAX_CONN_INFO_FIELD_LENGTH - 1) {
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_AUTO_DB);
-        tsk_error_set_errstr("TskDbPostgreSQL::connectToDatabase: User name is too long. Length = %d, Max length = %d", userNameStrLen, MAX_CONN_INFO_FIELD_LENGTH - 1);
+        tsk_error_set_errstr("TskDbPostgreSQL::connectToDatabase: User name is too long. Length = %zd, Max length = %d", userNameStrLen, MAX_CONN_INFO_FIELD_LENGTH - 1);
         return TSK_ERR;
     }
 
     if (pwdStrLen >= MAX_CONN_INFO_FIELD_LENGTH - 1) {
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_AUTO_DB);
-        tsk_error_set_errstr("TskDbPostgreSQL::connectToDatabase: Password is too long. Length = %d, Max length = %d", pwdStrLen, MAX_CONN_INFO_FIELD_LENGTH - 1);
+        tsk_error_set_errstr("TskDbPostgreSQL::connectToDatabase: Password is too long. Length = %zd, Max length = %d", pwdStrLen, MAX_CONN_INFO_FIELD_LENGTH - 1);
         return TSK_ERR;
     }
 
     if (hostNameStrLen >= MAX_CONN_INFO_FIELD_LENGTH - 1) {
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_AUTO_DB);
-        tsk_error_set_errstr("TskDbPostgreSQL::connectToDatabase: Host name is too long. Length = %d, Max length = %d", hostNameStrLen, MAX_CONN_INFO_FIELD_LENGTH - 1);
+        tsk_error_set_errstr("TskDbPostgreSQL::connectToDatabase: Host name is too long. Length = %zd, Max length = %d", hostNameStrLen, MAX_CONN_INFO_FIELD_LENGTH - 1);
         return TSK_ERR;
     }
 
     if (portStrLen > MAX_CONN_PORT_FIELD_LENGTH) {
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_AUTO_DB);
-        tsk_error_set_errstr("TskDbPostgreSQL::connectToDatabase: Host port string is too long. Length = %d, Max length = %d", portStrLen, MAX_CONN_PORT_FIELD_LENGTH);
+        tsk_error_set_errstr("TskDbPostgreSQL::connectToDatabase: Host port string is too long. Length = %zd, Max length = %d", portStrLen, MAX_CONN_PORT_FIELD_LENGTH);
         return TSK_ERR;
     }
 
     return TSK_OK;
 }
 
-PGconn* TskDbPostgreSQL::connectToDatabase(TSK_TCHAR *dbName) {
+PGconn* TskDbPostgreSQL::connectToDatabase(char *dbName) {
 
     // Make a connection to postgres database server
     char connectionString[1024];
@@ -119,11 +118,10 @@ PGconn* TskDbPostgreSQL::connectToDatabase(TSK_TCHAR *dbName) {
     PQescapeString(&userName_sql[0], userName, strlen(userName));
     PQescapeString(&password_sql[0], password, strlen(password));
     PQescapeString(&hostName_sql[0], hostNameOrIpAddr, strlen(hostNameOrIpAddr));
-
-    snprintf(connectionString, 1024, "user=%s password=%s dbname=%S host=%s port=%s", userName_sql, password_sql, dbName, hostName_sql, hostPort);
+    snprintf(connectionString, 1024, "user=%s password=%s dbname=%s host=%s port=%s", userName_sql, password_sql, dbName, hostName_sql, hostPort);	
     PGconn *dbConn = PQconnectdb(connectionString);
 
-    // Check to see that the backend connection was successfully made 
+    // Check to see that the backend connection was successfully made
     if (verifyResultCode(PQstatus(dbConn), CONNECTION_OK, "TskDbPostgreSQL::connectToDatabase: Connection to PostgreSQL database failed, result code %d"))
     {
         PQfinish(dbConn);
@@ -137,17 +135,17 @@ TSK_RETVAL_ENUM TskDbPostgreSQL::createDatabase(){
     TSK_RETVAL_ENUM result = TSK_OK;
 
     // Connect to PostgreSQL server first
-    TSK_TCHAR defaultPostgresDb[32] = TEXT("postgres");
+    char defaultPostgresDb[32] = "postgres";
     PGconn *serverConn = connectToDatabase(&defaultPostgresDb[0]);
     if (!serverConn)
         return TSK_ERR;
 
-    /* 
+    /*
     http://www.postgresql.org/docs/9.4/static/manage-ag-templatedbs.html
-    CREATE DATABASE actually works by copying an existing database. By default, it copies the standard system database named template1. 
-    Thus that database is the "template" from which new databases are made. If you add objects to template1, these objects will be copied 
-    into subsequently created user databases. This behavior allows site-local modifications to the standard set of objects in databases. 
-    For example, if you install the procedural language PL/Perl in template1, it will automatically be available in user databases without 
+    CREATE DATABASE actually works by copying an existing database. By default, it copies the standard system database named template1.
+    Thus that database is the "template" from which new databases are made. If you add objects to template1, these objects will be copied
+    into subsequently created user databases. This behavior allows site-local modifications to the standard set of objects in databases.
+    For example, if you install the procedural language PL/Perl in template1, it will automatically be available in user databases without
     any extra action being taken when those databases are created.
 
     ELTODO: perhaps we should create a default template TSK database with all tables created and use that as template for creating new databases.
@@ -155,12 +153,11 @@ TSK_RETVAL_ENUM TskDbPostgreSQL::createDatabase(){
     */
 
     // IMPORTANT: PostgreSQL database names are case sensitive but ONLY if you surround the db name in double quotes.
-    // If you use single quotes, PostgreSQL will convert db name to lower case. If database was created using double quotes 
+    // If you use single quotes, PostgreSQL will convert db name to lower case. If database was created using double quotes
     // you now need to always use double quotes when referring to it (e.dg when deleting database).
     char createDbString[1024];
-    snprintf(createDbString, 1024, "CREATE DATABASE \"%S\" WITH ENCODING='UTF8';", m_dBName);
-
-    PGresult *res = PQexec(serverConn, createDbString); 
+    snprintf(createDbString, 1024, "CREATE DATABASE \"%s\" WITH ENCODING='UTF8';", m_dBName);    
+    PGresult *res = PQexec(serverConn, createDbString);
     if (!res || PQresultStatus(res) != PGRES_COMMAND_OK) {
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_AUTO_DB);
@@ -197,16 +194,14 @@ int TskDbPostgreSQL::open(bool createDbFlag)
     if (!conn){
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_AUTO_DB);
-        tsk_error_set_errstr("TskDbPostgreSQL::open: Couldn't connect to database %S", m_dBName);
+       	tsk_error_set_errstr("TskDbPostgreSQL::open: Couldn't connect to database %s", m_dBName);
         return -1;
     }
 
     if (createDbFlag) {
         // initialize TSK tables
         if (initialize()) {
-            tsk_error_reset();
-            tsk_error_set_errno(TSK_ERR_AUTO_DB);
-            tsk_error_set_errstr("TskDbPostgreSQL::open: Couldn't initialize database %S", m_dBName);
+            tsk_error_set_errstr2("TskDbPostgreSQL::open: Couldn't initialize database %s", m_dBName);
             close();    // close connection to database
             return -1;
         }
@@ -229,20 +224,20 @@ int TskDbPostgreSQL::close()
 }
 
 
-bool TskDbPostgreSQL::dbExists() { 
+bool TskDbPostgreSQL::dbExists() {
 
     int numDb = 0;
 
     // Connect to PostgreSQL server first
-    TSK_TCHAR defaultPostgresDb[32] = TEXT("postgres");
+    char defaultPostgresDb[32] = "postgres";
     PGconn *serverConn = connectToDatabase(&defaultPostgresDb[0]);
     if (!serverConn)
         return false;
 
-    // Poll PostreSQL server for existing databases. 
+    // Poll PostreSQL server for existing databases.
     char selectString[1024];
-    snprintf(selectString, 1024, "SELECT datname FROM pg_catalog.pg_database WHERE datname = '%S';", m_dBName);
-
+    snprintf(selectString, 1024, "SELECT datname FROM pg_catalog.pg_database WHERE datname = '%s';", m_dBName);
+    
     PGresult *res = PQexec(serverConn, selectString);
     if (!res || PQresultStatus(res) != PGRES_TUPLES_OK)
     {
@@ -278,7 +273,7 @@ int TskDbPostgreSQL::attempt_exec(const char *sql, const char *errfmt)
         return 1;
     }
 
-    PGresult *res = PQexec(conn, sql); 
+    PGresult *res = PQexec(conn, sql);
 
     if (!isQueryResultValid(res, sql)) {
         return 1;
@@ -303,7 +298,7 @@ int TskDbPostgreSQL::attempt_exec(const char *sql, const char *errfmt)
 */
 int TskDbPostgreSQL::isEscapedStringValid(const char *sql_str, const char *orig_str, const char *errfmt){
 
-    if (!sql_str){
+    if (sql_str == NULL){
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_AUTO_DB);
         char * str = PQerrorMessage(conn);
@@ -327,7 +322,7 @@ PGresult* TskDbPostgreSQL::get_query_result_set(const char *sql, const char *err
         return NULL;
     }
 
-    PGresult *res = PQexec(conn, sql); 
+    PGresult *res = PQexec(conn, sql);
     if (!isQueryResultValid(res, sql)) {
         return NULL;
     }
@@ -382,9 +377,9 @@ PGresult* TskDbPostgreSQL::get_query_result_set_binary(const char *sql, const ch
     return res;
 }
 
-/* Verifies that result code matches expected result code. Sets TSK error values if result codes do not match. 		
-* @returns 0 if result codes match, 1 if they don't		
-*/	
+/* Verifies that result code matches expected result code. Sets TSK error values if result codes do not match.
+* @returns 0 if result codes match, 1 if they don't
+*/
 int TskDbPostgreSQL::verifyResultCode(int resultCode, int expectedResultCode, const char *errfmt)
 {
     if (resultCode != expectedResultCode) {
@@ -396,10 +391,10 @@ int TskDbPostgreSQL::verifyResultCode(int resultCode, int expectedResultCode, co
     return 0;
 }
 
-/* Verifies if PGresult is valid. Result set must contain at least one row. Number of returned fileds must match expected number of fields. 
-* Sets TSK error values if result is invalid. 		
+/* Verifies if PGresult is valid. Result set must contain at least one row. Number of returned fileds must match expected number of fields.
+* Sets TSK error values if result is invalid.
 * @returns 0 if result is valid, 1 if result is invalid	or empty
-*/	
+*/
 int TskDbPostgreSQL::verifyNonEmptyResultSetSize(const char *sql, PGresult *res, int expectedNumFileds, const char *errfmt)
 {
     if (!isQueryResultValid(res, sql)) {
@@ -423,10 +418,10 @@ int TskDbPostgreSQL::verifyNonEmptyResultSetSize(const char *sql, PGresult *res,
     return 0;
 }
 
-/* Verifies if PGresult is valid. It's acceptable for result set to be empty. If result set is not empty, number of returned fileds must match expected number of fields. 
-* Sets TSK error values if result is invalid. 		
-* @returns 0 if result is valid or empty, 1 if result is invalid		
-*/	
+/* Verifies if PGresult is valid. It's acceptable for result set to be empty. If result set is not empty, number of returned fileds must match expected number of fields.
+* Sets TSK error values if result is invalid.
+* @returns 0 if result is valid or empty, 1 if result is invalid
+*/
 int TskDbPostgreSQL::verifyResultSetSize(const char *sql, PGresult *res, int expectedNumFileds, const char *errfmt)
 {
     // check if a valid result set was returned
@@ -452,50 +447,50 @@ int TskDbPostgreSQL::verifyResultSetSize(const char *sql, PGresult *res, int exp
 }
 
 
-/* Verifies if PGresult is valid. Sets TSK error values if result is invalid. 		
-* @returns true if result is valid, false if result is invalid		
-*/		
-bool TskDbPostgreSQL::isQueryResultValid(PGresult *res, const char *sql)		
-{		 
+/* Verifies if PGresult is valid. Sets TSK error values if result is invalid.
+* @returns true if result is valid, false if result is invalid
+*/
+bool TskDbPostgreSQL::isQueryResultValid(PGresult *res, const char *sql)
+{
     if (!res) {
-        tsk_error_reset();	
-        tsk_error_set_errno(TSK_ERR_AUTO_DB);	
+        tsk_error_reset();
+        tsk_error_set_errno(TSK_ERR_AUTO_DB);
         tsk_error_set_errstr("SQL command returned a NULL result set pointer: %s", sql);
         return false;
     }
     return true;
 }
 
-/* Removes any existing non-UTF8 characters from string. Output string needs to be pre-allocated 
+/* Removes any existing non-UTF8 characters from string. Output string needs to be pre-allocated
 * and it's max size is passed as input.
 */
 void TskDbPostgreSQL::removeNonUtf8(char* newStr, int newStrMaxSize, const char* origStr)
 {
     if (!newStr){
-        tsk_error_reset();	
-        tsk_error_set_errno(TSK_ERR_AUTO_DB);	
+        tsk_error_reset();
+        tsk_error_set_errno(TSK_ERR_AUTO_DB);
         tsk_error_set_errstr("TskDbPostgreSQL::removeNonUtf8: Output string has not been allocated");
         return;
     }
-
-    int strSize = min((int) strlen(origStr), newStrMaxSize);
+#undef min
+    int strSize = std::min((int) strlen(origStr), newStrMaxSize);
     strncpy(newStr, origStr, strSize);
     newStr[strSize] = '\0';
     tsk_cleanupUTF8(newStr, '^');
 }
 
-/** 
+/**
 * Initialize the open DB: set PRAGMAs, create tables and indexes
 * @returns 1 on error
 */
-int TskDbPostgreSQL::initialize() { 
+int TskDbPostgreSQL::initialize() {
 
     char foo[1024];
-    if (attempt_exec("CREATE TABLE tsk_db_info (schema_ver INTEGER, tsk_ver INTEGER);","Error creating tsk_db_info table: %s\n")) {
+    if (attempt_exec("CREATE TABLE tsk_db_info (schema_ver INTEGER, tsk_ver INTEGER, schema_minor_ver INTEGER);","Error creating tsk_db_info table: %s\n")) {
         return 1;
     }
 
-    snprintf(foo, 1024, "INSERT INTO tsk_db_info (schema_ver, tsk_ver) VALUES (%d, %d);", TSK_SCHEMA_VER, TSK_VERSION_NUM);
+    snprintf(foo, 1024, "INSERT INTO tsk_db_info (schema_ver, tsk_ver, schema_minor_ver) VALUES (%d, %d,%d);", TSK_SCHEMA_VER, TSK_VERSION_NUM, TSK_SCHEMA_MINOR_VER);
     if (attempt_exec(foo, "Error adding data to tsk_db_info table: %s\n")) {
         return 1;
     }
@@ -531,7 +526,7 @@ int TskDbPostgreSQL::initialize() {
         attempt_exec
         ("CREATE TABLE file_encoding_types (encoding_type INTEGER PRIMARY KEY, name TEXT NOT NULL);",
         "Error creating file_encoding_types table: %s\n")
-        ||  
+        ||
         attempt_exec("CREATE TABLE tsk_files_path (obj_id BIGSERIAL PRIMARY KEY, path TEXT NOT NULL, encoding_type INTEGER, FOREIGN KEY(encoding_type) references file_encoding_types(encoding_type), FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id))",
         "Error creating tsk_files_path table: %s\n")
         ||
@@ -539,11 +534,7 @@ int TskDbPostgreSQL::initialize() {
         ||
         attempt_exec("CREATE TABLE tsk_files_derived_method (derived_id BIGSERIAL PRIMARY KEY, tool_name TEXT NOT NULL, tool_version TEXT NOT NULL, other TEXT)","Error creating tsk_files_derived_method table: %s\n")
         ||
-        attempt_exec("CREATE TABLE tag_names (tag_name_id BIGSERIAL PRIMARY KEY, display_name TEXT UNIQUE, description TEXT NOT NULL, color TEXT NOT NULL)","Error creating tag_names table: %s\n")
-        ||
-        attempt_exec("CREATE TABLE content_tags (tag_id BIGSERIAL PRIMARY KEY, obj_id BIGINT NOT NULL, tag_name_id BIGINT NOT NULL, comment TEXT NOT NULL, begin_byte_offset BIGINT NOT NULL, end_byte_offset BIGINT NOT NULL, "
-        "FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id), FOREIGN KEY(tag_name_id) REFERENCES tag_names(tag_name_id))",
-        "Error creating content_tags table: %s\n")
+        attempt_exec("CREATE TABLE tag_names (tag_name_id BIGSERIAL PRIMARY KEY, display_name TEXT UNIQUE, description TEXT NOT NULL, color TEXT NOT NULL, knownStatus INTEGER NOT NULL)","Error creating tag_names table: %s\n")
         ||
         attempt_exec("CREATE TABLE blackboard_artifact_types (artifact_type_id BIGSERIAL PRIMARY KEY, type_name TEXT NOT NULL, display_name TEXT)","Error creating blackboard_artifact_types table: %s\n")
         ||
@@ -557,58 +548,82 @@ int TskDbPostgreSQL::initialize() {
         attempt_exec("CREATE TABLE blackboard_artifacts (artifact_id BIGSERIAL PRIMARY KEY, "
 		"obj_id BIGINT NOT NULL, "
 		"artifact_obj_id BIGINT NOT NULL, "
+		"data_source_obj_id BIGINT NOT NULL, "
 		"artifact_type_id BIGINT NOT NULL, "
 		"review_status_id INTEGER NOT NULL, "
         "FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id), "
 		"FOREIGN KEY(artifact_obj_id) REFERENCES tsk_objects(obj_id), "
+		"FOREIGN KEY(data_source_obj_id) REFERENCES tsk_objects(obj_id), "
 		"FOREIGN KEY(artifact_type_id) REFERENCES blackboard_artifact_types(artifact_type_id), "
 		"FOREIGN KEY(review_status_id) REFERENCES review_statuses(review_status_id))",
-        "Error creating blackboard_artifact table: %s\n")
-        ||
-        attempt_exec("ALTER SEQUENCE blackboard_artifacts_artifact_id_seq minvalue -9223372036854775808 restart with -9223372036854775808", "Error setting starting value for artifact_id: %s\n")
-        ||
-        attempt_exec("CREATE TABLE blackboard_artifact_tags (tag_id BIGSERIAL PRIMARY KEY, artifact_id BIGINT NOT NULL, tag_name_id BIGINT NOT NULL, comment TEXT NOT NULL, "
-        "FOREIGN KEY(artifact_id) REFERENCES blackboard_artifacts(artifact_id), FOREIGN KEY(tag_name_id) REFERENCES tag_names(tag_name_id))",
-        "Error creating blackboard_artifact_tags table: %s\n")
-        ||
-        /* Binary representation of BYTEA is a bunch of bytes, which could
-        * include embedded nulls so we have to pay attention to field length.
-        * http://www.postgresql.org/docs/9.4/static/libpq-example.html
-        */
-        attempt_exec
-        ("CREATE TABLE blackboard_attributes (artifact_id BIGINT NOT NULL, artifact_type_id BIGINT NOT NULL, source TEXT, context TEXT, attribute_type_id BIGINT NOT NULL, value_type INTEGER NOT NULL, "
-        "value_byte BYTEA, value_text TEXT, value_int32 INTEGER, value_int64 BIGINT, value_double NUMERIC(20, 10), "
-        "FOREIGN KEY(artifact_id) REFERENCES blackboard_artifacts(artifact_id), FOREIGN KEY(artifact_type_id) REFERENCES blackboard_artifact_types(artifact_type_id), FOREIGN KEY(attribute_type_id) REFERENCES blackboard_attribute_types(attribute_type_id))",
-        "Error creating blackboard_attribute table: %s\n")
-        ||
-        /* In PostgreSQL "desc" indicates "descending order" so I had to rename "desc TEXT" to "descr TEXT". Should I also make this change for SQLite?*/
-        attempt_exec
-        ("CREATE TABLE tsk_vs_parts (obj_id BIGSERIAL PRIMARY KEY, addr BIGINT NOT NULL, start BIGINT NOT NULL, length BIGINT NOT NULL, descr TEXT, flags INTEGER NOT NULL, FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id));",
-        "Error creating tsk_vol_info table: %s\n")
+		"Error creating blackboard_artifact table: %s\n")
+	||
+	attempt_exec("ALTER SEQUENCE blackboard_artifacts_artifact_id_seq minvalue -9223372036854775808 restart with -9223372036854775808", "Error setting starting value for artifact_id: %s\n")
+	||
+	/* Binary representation of BYTEA is a bunch of bytes, which could
+	* include embedded nulls so we have to pay attention to field length.
+	* http://www.postgresql.org/docs/9.4/static/libpq-example.html
+	*/
+	attempt_exec
+	("CREATE TABLE blackboard_attributes (artifact_id BIGINT NOT NULL, artifact_type_id BIGINT NOT NULL, source TEXT, context TEXT, attribute_type_id BIGINT NOT NULL, value_type INTEGER NOT NULL, "
+		"value_byte BYTEA, value_text TEXT, value_int32 INTEGER, value_int64 BIGINT, value_double NUMERIC(20, 10), "
+		"FOREIGN KEY(artifact_id) REFERENCES blackboard_artifacts(artifact_id), FOREIGN KEY(artifact_type_id) REFERENCES blackboard_artifact_types(artifact_type_id), FOREIGN KEY(attribute_type_id) REFERENCES blackboard_attribute_types(attribute_type_id))",
+		"Error creating blackboard_attribute table: %s\n")
+	||
+	/* In PostgreSQL "desc" indicates "descending order" so I had to rename "desc TEXT" to "descr TEXT". Should I also make this change for SQLite?*/
+	attempt_exec
+	("CREATE TABLE tsk_vs_parts (obj_id BIGSERIAL PRIMARY KEY, addr BIGINT NOT NULL, start BIGINT NOT NULL, length BIGINT NOT NULL, descr TEXT, flags INTEGER NOT NULL, FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id));",
+		"Error creating tsk_vol_info table: %s\n")
+	||
+	attempt_exec
+	("CREATE TABLE ingest_module_types (type_id INTEGER PRIMARY KEY, type_name TEXT NOT NULL)",
+		"Error creating ingest_module_types table: %s\n")
+	||
+	attempt_exec
+	("CREATE TABLE ingest_job_status_types (type_id INTEGER PRIMARY KEY, type_name TEXT NOT NULL)",
+		"Error creating ingest_job_status_types table: %s\n")
+	||
+	attempt_exec
+	("CREATE TABLE ingest_modules (ingest_module_id BIGSERIAL PRIMARY KEY, display_name TEXT NOT NULL, unique_name TEXT UNIQUE NOT NULL, type_id INTEGER NOT NULL, version TEXT NOT NULL, FOREIGN KEY(type_id) REFERENCES ingest_module_types(type_id));",
+		"Error creating ingest_modules table: %s\n")
+	||
+	attempt_exec
+	("CREATE TABLE ingest_jobs (ingest_job_id BIGSERIAL PRIMARY KEY, obj_id BIGINT NOT NULL, host_name TEXT NOT NULL, start_date_time BIGINT NOT NULL, end_date_time BIGINT NOT NULL, status_id INTEGER NOT NULL, settings_dir TEXT, FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id), FOREIGN KEY(status_id) REFERENCES ingest_job_status_types(type_id));",
+		"Error creating ingest_jobs table: %s\n")
+	||
+	attempt_exec
+	("CREATE TABLE ingest_job_modules (ingest_job_id INTEGER, ingest_module_id INTEGER, pipeline_position INTEGER, PRIMARY KEY(ingest_job_id, ingest_module_id), FOREIGN KEY(ingest_job_id) REFERENCES ingest_jobs(ingest_job_id), FOREIGN KEY(ingest_module_id) REFERENCES ingest_modules(ingest_module_id));",
+		"Error creating ingest_job_modules table: %s\n")
+	||
+	attempt_exec
+	("CREATE TABLE reports (obj_id BIGSERIAL PRIMARY KEY, path TEXT NOT NULL, crtime INTEGER NOT NULL, src_module_name TEXT NOT NULL, report_name TEXT NOT NULL, FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id));", "Error creating reports table: %s\n")
 		||
 		attempt_exec
-        ("CREATE TABLE ingest_module_types (type_id INTEGER PRIMARY KEY, type_name TEXT NOT NULL)",
-        "Error creating ingest_module_types table: %s\n")
+		("CREATE TABLE account_types (account_type_id BIGSERIAL PRIMARY KEY, type_name TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL)",
+		"Error creating account_types table: %s\n")
 		||
 		attempt_exec
-        ("CREATE TABLE ingest_job_status_types (type_id INTEGER PRIMARY KEY, type_name TEXT NOT NULL)",
-        "Error creating ingest_job_status_types table: %s\n")
+		("CREATE TABLE accounts (account_id BIGSERIAL PRIMARY KEY, account_type_id INTEGER NOT NULL, account_unique_identifier TEXT NOT NULL,  UNIQUE(account_type_id, account_unique_identifier) , FOREIGN KEY(account_type_id) REFERENCES account_types(account_type_id))",
+		"Error creating accounts table: %s\n") 
 		||
 		attempt_exec
-        ("CREATE TABLE ingest_modules (ingest_module_id BIGSERIAL PRIMARY KEY, display_name TEXT NOT NULL, unique_name TEXT UNIQUE NOT NULL, type_id INTEGER NOT NULL, version TEXT NOT NULL, FOREIGN KEY(type_id) REFERENCES ingest_module_types(type_id));",
-        "Error creating ingest_modules table: %s\n")
+		("CREATE TABLE account_relationships  (relationship_id BIGSERIAL PRIMARY KEY, account1_id INTEGER NOT NULL, account2_id INTEGER NOT NULL, relationship_source_obj_id INTEGER NOT NULL, date_time BIGINT, relationship_type INTEGER NOT NULL, data_source_obj_id INTEGER NOT NULL, UNIQUE(account1_id, account2_id, relationship_source_obj_id), FOREIGN KEY(account1_id) REFERENCES accounts(account_id), FOREIGN KEY(account2_id) REFERENCES accounts(account_id), FOREIGN KEY(relationship_source_obj_id) REFERENCES tsk_objects(obj_id), FOREIGN KEY(data_source_obj_id) REFERENCES tsk_objects(obj_id))",
+		"Error creating relationships table: %s\n")	 
 		||
 		attempt_exec
-        ("CREATE TABLE ingest_jobs (ingest_job_id BIGSERIAL PRIMARY KEY, obj_id BIGINT NOT NULL, host_name TEXT NOT NULL, start_date_time BIGINT NOT NULL, end_date_time BIGINT NOT NULL, status_id INTEGER NOT NULL, settings_dir TEXT, FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id), FOREIGN KEY(status_id) REFERENCES ingest_job_status_types(type_id));",
-        "Error creating ingest_jobs table: %s\n")
+		("CREATE TABLE tsk_examiners (examiner_id BIGSERIAL PRIMARY KEY, login_name TEXT NOT NULL, display_name TEXT, UNIQUE(login_name))",
+			"Error creating tsk_examiners table: %s\n") 
 		||
 		attempt_exec
-        ("CREATE TABLE ingest_job_modules (ingest_job_id INTEGER, ingest_module_id INTEGER, pipeline_position INTEGER, PRIMARY KEY(ingest_job_id, ingest_module_id), FOREIGN KEY(ingest_job_id) REFERENCES ingest_jobs(ingest_job_id), FOREIGN KEY(ingest_module_id) REFERENCES ingest_modules(ingest_module_id));",
-        "Error creating ingest_job_modules table: %s\n")
-        ||
-        attempt_exec
-        ("CREATE TABLE reports (report_id BIGSERIAL PRIMARY KEY, path TEXT NOT NULL, crtime INTEGER NOT NULL, src_module_name TEXT NOT NULL, report_name TEXT NOT NULL)","Error creating reports table: %s\n")) {
-            return 1;
+		("CREATE TABLE content_tags (tag_id BIGSERIAL PRIMARY KEY, obj_id BIGINT NOT NULL, tag_name_id BIGINT NOT NULL, comment TEXT NOT NULL, begin_byte_offset BIGINT NOT NULL, end_byte_offset BIGINT NOT NULL, examiner_id BIGINT, "
+			"FOREIGN KEY(examiner_id) REFERENCES tsk_examiners(examiner_id), FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id), FOREIGN KEY(tag_name_id) REFERENCES tag_names(tag_name_id))",
+			"Error creating content_tags table: %s\n")
+		||
+		attempt_exec
+		("CREATE TABLE blackboard_artifact_tags (tag_id BIGSERIAL PRIMARY KEY, artifact_id BIGINT NOT NULL, tag_name_id BIGINT NOT NULL, comment TEXT NOT NULL,  examiner_id BIGINT, "
+			"FOREIGN KEY(examiner_id) REFERENCES tsk_examiners(examiner_id), FOREIGN KEY(artifact_id) REFERENCES blackboard_artifacts(artifact_id), FOREIGN KEY(tag_name_id) REFERENCES tag_names(tag_name_id))",
+			"Error creating blackboard_artifact_tags table: %s\n")){
+			return 1;
     }
 
     if (m_blkMapFlag) {
@@ -622,11 +637,11 @@ int TskDbPostgreSQL::initialize() {
     if (createIndexes())
         return 1;
 
-    return 0;    
+    return 0;
 }
 
 /**
-* Create indexes for the columns that are not primary keys and that we query on. 
+* Create indexes for the columns that are not primary keys and that we query on.
 * @returns 1 on error, 0 on success
 */
 int TskDbPostgreSQL::createIndexes() {
@@ -640,6 +655,8 @@ int TskDbPostgreSQL::createIndexes() {
 		// blackboard indexes
 		attempt_exec("CREATE INDEX artifact_objID ON blackboard_artifacts(obj_id);",
 			"Error creating artifact_objID index on blackboard_artifacts: %s\n") ||
+		attempt_exec("CREATE INDEX artifact_artifact_objID ON blackboard_artifacts(artifact_obj_id);",
+			"Error creating artifact_artifact_objID index on blackboard_artifacts: %s\n") ||
 		attempt_exec("CREATE INDEX artifact_typeID ON blackboard_artifacts(artifact_type_id);",
 			"Error creating artifact_objID index on blackboard_artifacts: %s\n") ||
 		attempt_exec("CREATE INDEX attrsArtifactID ON blackboard_attributes(artifact_id);",
@@ -648,7 +665,19 @@ int TskDbPostgreSQL::createIndexes() {
 		attempt_exec("CREATE INDEX mime_type ON tsk_files(dir_type,mime_type,type);", //mime type
 			"Error creating mime_type index on tsk_files: %s\n") ||
 		attempt_exec("CREATE INDEX file_extension ON tsk_files(extension);",  //file extenssion
-			"Error creating file_extension index on tsk_files: %s\n");
+			"Error creating file_extension index on tsk_files: %s\n") ||
+		attempt_exec("CREATE INDEX relationships_account1  ON account_relationships(account1_id);",
+			"Error creating relationships_account1 index on account_relationships: %s\n") ||
+		attempt_exec("CREATE INDEX relationships_account2  ON account_relationships(account2_id);",
+			"Error creating relationships_account2 index on account_relationships: %s\n") ||
+		attempt_exec("CREATE INDEX relationships_relationship_source_obj_id  ON account_relationships(relationship_source_obj_id);",
+			"Error creating relationships_relationship_source_obj_id index on account_relationships: %s\n") ||
+		attempt_exec("CREATE INDEX relationships_date_time  ON account_relationships(date_time);",
+			"Error creating relationships_date_time index on account_relationships: %s\n") ||
+		attempt_exec("CREATE INDEX relationships_relationship_type ON account_relationships(relationship_type);",
+			"Error creating relationships_relationship_type index on account_relationships: %s\n") ||
+		attempt_exec("CREATE INDEX relationships_data_source_obj_id  ON account_relationships(data_source_obj_id);",
+			"Error creating relationships_data_source_obj_id index on account_relationships: %s\n");
 }
 
 
@@ -690,7 +719,7 @@ int TskDbPostgreSQL::addVsInfo(const TSK_VS_INFO * vs_info, int64_t parObjId, in
     if (addObject(TSK_DB_OBJECT_TYPE_VS, parObjId, objId))
         return 1;
 
-    snprintf(stmt, 1024, "INSERT INTO tsk_vs_info (obj_id, vs_type, img_offset, block_size) VALUES (%lld, %d,%"
+    snprintf(stmt, 1024, "INSERT INTO tsk_vs_info (obj_id, vs_type, img_offset, block_size) VALUES (%" PRId64 ", %d, %"
         PRIuOFF ",%u)", objId, vs_info->vstype, vs_info->offset, vs_info->block_size);
 
     return attempt_exec(stmt, "Error adding data to tsk_vs_info table: %s\n");
@@ -774,13 +803,13 @@ int TskDbPostgreSQL::addImageInfo(int type, TSK_OFF_T ssize, int64_t & objId, co
     removeNonUtf8(md5_local, MAX_DB_STRING_LENGTH - 1, md5.c_str());
     char *timezone_sql = PQescapeLiteral(conn, timeZone_local, strlen(timeZone_local));
     char *md5_sql = PQescapeLiteral(conn, md5_local, strlen(md5_local));
-    if (!isEscapedStringValid(timezone_sql, timeZone_local, "TskDbPostgreSQL::addImageInfo: Unable to escape time zone string: %s (Error: %s)\n") 
+    if (!isEscapedStringValid(timezone_sql, timeZone_local, "TskDbPostgreSQL::addImageInfo: Unable to escape time zone string: %s (Error: %s)\n")
         || !isEscapedStringValid(md5_sql, md5_local, "TskDbPostgreSQL::addImageInfo: Unable to escape md5 string: %s (Error: %s)\n")) {
         PQfreemem(timezone_sql);
         PQfreemem(md5_sql);
         return 1;
     }
-    snprintf(stmt, 2048, "INSERT INTO tsk_image_info (obj_id, type, ssize, tzone, size, md5) VALUES (%lld, %d, %lld, %s, %" PRIuOFF ", %s);",
+    snprintf(stmt, 2048, "INSERT INTO tsk_image_info (obj_id, type, ssize, tzone, size, md5) VALUES (%" PRId64 ", %d, %" PRIuOFF ", %s, %" PRIuOFF ", %s);",
         objId, type, ssize, timezone_sql, size, md5_sql);
     int ret = attempt_exec(stmt, "Error adding data to tsk_image_info table: %s\n");
     PQfreemem(timezone_sql);
@@ -815,7 +844,7 @@ int TskDbPostgreSQL::addImageInfo(int type, TSK_OFF_T ssize, int64_t & objId, co
         PQfreemem(timeZone_sql);
         return 1;
     }
-    snprintf(stmt, 2048, "INSERT INTO data_source_info (obj_id, device_id, time_zone) VALUES (%lld, %s, %s);",
+    snprintf(stmt, 2048, "INSERT INTO data_source_info (obj_id, device_id, time_zone) VALUES (%" PRId64 ", %s, %s);",
         objId, deviceId_sql, timeZone_sql);
     ret = attempt_exec(stmt, "Error adding device id to data_source_info table: %s\n");
     PQfreemem(deviceId_sql);
@@ -840,7 +869,7 @@ int TskDbPostgreSQL::addImageName(int64_t objId, char const *imgName, int sequen
         return 1;
     }
 
-    snprintf(stmt, 2048, "INSERT INTO tsk_image_names (obj_id, name, sequence) VALUES (%lld, %s, %d)", objId, imgName_sql, sequence);
+    snprintf(stmt, 2048, "INSERT INTO tsk_image_names (obj_id, name, sequence) VALUES (%" PRId64 ", %s, %d)", objId, imgName_sql, sequence);
     int ret = attempt_exec(stmt, "Error adding data to tsk_image_names table: %s\n");
 
     // cleanup
@@ -864,7 +893,7 @@ int TskDbPostgreSQL::addFsInfo(const TSK_FS_INFO * fs_info, int64_t parObjId, in
         "INSERT INTO tsk_fs_info (obj_id, img_offset, fs_type, block_size, block_count, "
         "root_inum, first_inum, last_inum) "
         "VALUES ("
-        "%lld,%" PRIuOFF ",%d,%u,%" PRIuDADDR ","
+        "%" PRId64 ",%" PRIuOFF ",%d,%u,%" PRIuDADDR ","
         "%" PRIuINUM ",%" PRIuINUM ",%" PRIuINUM ")",
         objId, fs_info->offset, (int) fs_info->ftype, fs_info->block_size,
         fs_info->block_count, fs_info->root_inum, fs_info->first_inum,
@@ -878,7 +907,7 @@ int TskDbPostgreSQL::addFsInfo(const TSK_FS_INFO * fs_info, int64_t parObjId, in
 * @param fs_file File structure to add
 * @param fs_attr Specific attribute to add
 * @param path Path of parent folder
-* @param md5 Binary value of MD5 (i.e. 16 bytes) or NULL 
+* @param md5 Binary value of MD5 (i.e. 16 bytes) or NULL
 * @param known Status regarding if it was found in hash database or not
 * @param fsObjId File system object of its file system
 * @param objId ID that was assigned to it from the objects table
@@ -892,14 +921,15 @@ int TskDbPostgreSQL::addFsFile(TSK_FS_FILE * fs_file,
 {
     int64_t parObjId = 0;
 
-    if (fs_file->name == NULL)
+    if (fs_file->name == NULL) {
         return 0;
+    }
 
     // Find the object id for the parent folder.
 
     /* Root directory's parent should be the file system object.
      * Make sure it doesn't have a name, so that we don't pick up ".." entries */
-    if ((fs_file->fs_info->root_inum == fs_file->name->meta_addr) && 
+    if ((fs_file->fs_info->root_inum == fs_file->name->meta_addr) &&
         ((fs_file->name->name == NULL) || (strlen(fs_file->name->name) == 0))) {
             parObjId = fsObjId;
     }
@@ -908,7 +938,7 @@ int TskDbPostgreSQL::addFsFile(TSK_FS_FILE * fs_file,
         if (parObjId == -1) {
             //error
             return 1;
-        }    
+        }
     }
 
     return addFile(fs_file, fs_attr, path, md5, known, fsObjId, parObjId, objId, dataSourceObjId);
@@ -921,7 +951,7 @@ int TskDbPostgreSQL::addFsFile(TSK_FS_FILE * fs_file,
 * Return 0 on success, 1 on error.
 */
 int TskDbPostgreSQL::addFile(TSK_FS_FILE * fs_file, const TSK_FS_ATTR * fs_attr, const char *path,
-    const unsigned char *const md5, const TSK_DB_FILES_KNOWN_ENUM known, int64_t fsObjId, int64_t parObjId, int64_t & objId, 
+    const unsigned char *const md5, const TSK_DB_FILES_KNOWN_ENUM known, int64_t fsObjId, int64_t parObjId, int64_t & objId,
     int64_t dataSourceObjId)
 {
     time_t mtime = 0;
@@ -988,7 +1018,7 @@ int TskDbPostgreSQL::addFile(TSK_FS_FILE * fs_file, const TSK_FS_ATTR * fs_attr,
     // +2 = space for leading slash and terminating null
     size_t path_len = strlen(path) + 2;
     char *escaped_path;
-    if ((escaped_path = (char *) tsk_malloc(path_len)) == NULL) { 
+    if ((escaped_path = (char *) tsk_malloc(path_len)) == NULL) {
 		free(name);
         return 1;
     }
@@ -1025,7 +1055,7 @@ int TskDbPostgreSQL::addFile(TSK_FS_FILE * fs_file, const TSK_FS_ATTR * fs_attr,
     char *name_sql = PQescapeLiteral(conn, name, strlen(name));
     char *escaped_path_sql = PQescapeLiteral(conn, escaped_path, strlen(escaped_path));
 	char *extension_sql = PQescapeLiteral(conn, extension, strlen(extension));
-    if (!isEscapedStringValid(name_sql, name, "TskDbPostgreSQL::addFile: Unable to escape file name string: %s\n") 
+    if (!isEscapedStringValid(name_sql, name, "TskDbPostgreSQL::addFile: Unable to escape file name string: %s\n")
         || !isEscapedStringValid(escaped_path_sql, escaped_path, "TskDbPostgreSQL::addFile: Unable to escape path string: %s\n")
 		|| !isEscapedStringValid(extension_sql, extension, "TskDbPostgreSQL::addFile: Unable to escape extension string: %s\n")
 		) {
@@ -1041,7 +1071,7 @@ int TskDbPostgreSQL::addFile(TSK_FS_FILE * fs_file, const TSK_FS_ATTR * fs_attr,
     zSQL_fixed[2047] = '\0';
     char *zSQL_dynamic = NULL; // Only used if the query does not fit in the fixed length buffer
     char *zSQL = zSQL_fixed;
-    int bufLen = 2048;
+    size_t bufLen = 2048;
 
     // Check if the path may be too long. The rest of the query should take up far less than 500 bytes.
     if (strlen(name_sql) + strlen(escaped_path_sql) + 500 > bufLen) {
@@ -1081,15 +1111,13 @@ int TskDbPostgreSQL::addFile(TSK_FS_FILE * fs_file, const TSK_FS_ATTR * fs_attr,
         fs_file->name->type, meta_type, fs_file->name->flags, meta_flags,
         size,
         (unsigned long long)crtime, (unsigned long long)ctime, (unsigned long long) atime, (unsigned long long) mtime,
-        meta_mode, gid, uid, NULL, known,
+        meta_mode, gid, uid, md5TextPtr, known,
         escaped_path_sql, extension_sql)) {
 
             tsk_error_reset();
             tsk_error_set_errno(TSK_ERR_AUTO_DB);
             tsk_error_set_errstr("Error inserting file with object ID for: %" PRId64 , objId);
-            if (zSQL_dynamic != NULL) {
-                free(zSQL_dynamic);
-            }
+            free(zSQL_dynamic);
             free(name);
             free(escaped_path);
             PQfreemem(name_sql);
@@ -1099,14 +1127,12 @@ int TskDbPostgreSQL::addFile(TSK_FS_FILE * fs_file, const TSK_FS_ATTR * fs_attr,
     }
 
     if (attempt_exec(zSQL, "TskDbPostgreSQL::addFile: Error adding data to tsk_files table: %s\n")) {
-		free(name);
+		    free(name);
         free(escaped_path);
         PQfreemem(name_sql);
         PQfreemem(escaped_path_sql);
-		PQfreemem(extension_sql);
-        if (zSQL_dynamic != NULL) {
-            free(zSQL_dynamic);
-        }
+		    PQfreemem(extension_sql);
+        free(zSQL_dynamic);
         return 1;
     }
 
@@ -1121,12 +1147,12 @@ int TskDbPostgreSQL::addFile(TSK_FS_FILE * fs_file, const TSK_FS_ATTR * fs_attr,
     //   - File name is not empty, "." or ".."
     //   - Data is non-resident
     //   - The allocated size is greater than the initialized file size
-    //     See github issue #756 on why initsize and not size. 
+    //     See github issue #756 on why initsize and not size.
     //   - The data is not compressed
     if((fs_attr != NULL)
            && ((strlen(name) > 0) && (!TSK_FS_ISDOT(name)))
            && (! (fs_file->meta->flags & TSK_FS_META_FLAG_COMP))
-           && (fs_attr->flags & TSK_FS_ATTR_NONRES) 
+           && (fs_attr->flags & TSK_FS_ATTR_NONRES)
            && (fs_attr->nrd.allocsize >  fs_attr->nrd.initsize)){
 		strncat(name, "-slack", 6);
 		PQfreemem(name_sql);
@@ -1136,8 +1162,8 @@ int TskDbPostgreSQL::addFile(TSK_FS_FILE * fs_file, const TSK_FS_ATTR * fs_attr,
 			PQfreemem(extension_sql);
 			extension_sql = PQescapeLiteral(conn, extension, strlen(extension));
 		}
-  
-	
+
+
         TSK_OFF_T slackSize = fs_attr->nrd.allocsize - fs_attr->nrd.initsize;
 
         if (addObject(TSK_DB_OBJECT_TYPE_FILE, parObjId, objId)) {
@@ -1159,17 +1185,17 @@ int TskDbPostgreSQL::addFile(TSK_FS_FILE * fs_file, const TSK_FS_ATTR * fs_attr,
             "%d,%d,%d,%d,"
             "%" PRIuOFF ","
             "%llu,%llu,%llu,%llu,"
-            "%d,%d,%d,%s,%d,"
+            "%d,%d,%d,NULL,%d,"
             "%s, %s)",
             fsObjId, objId,
             dataSourceObjId,
             TSK_DB_FILES_TYPE_SLACK,
             type, idx, name_sql,
-            fs_file->name->meta_addr, fs_file->name->meta_seq, 
+            fs_file->name->meta_addr, fs_file->name->meta_seq,
             TSK_FS_NAME_TYPE_REG, TSK_FS_META_TYPE_REG, fs_file->name->flags, meta_flags,
-            slackSize, 
-            (unsigned long long)crtime, (unsigned long long)ctime,(unsigned long long) atime,(unsigned long long) mtime, 
-            meta_mode, gid, uid, NULL, known,
+            slackSize,
+            (unsigned long long)crtime, (unsigned long long)ctime,(unsigned long long) atime,(unsigned long long) mtime,
+            meta_mode, gid, uid, known,
             escaped_path_sql,extension_sql)) {
 
                 tsk_error_reset();
@@ -1179,33 +1205,26 @@ int TskDbPostgreSQL::addFile(TSK_FS_FILE * fs_file, const TSK_FS_ATTR * fs_attr,
                 free(escaped_path);
                 PQfreemem(name_sql);
                 PQfreemem(escaped_path_sql);
-				PQfreemem(extension_sql);
-                if (zSQL_dynamic != NULL) {
-                    free(zSQL_dynamic);
-                }
+                PQfreemem(extension_sql);
+                free(zSQL_dynamic);
                 return 1;
         }
 
         if (attempt_exec(zSQL, "TskDbPostgreSQL::addFile: Error adding data to tsk_files table: %s\n")) {
-			free(name);
+            free(name);
             free(escaped_path);
             PQfreemem(name_sql);
             PQfreemem(escaped_path_sql);	
-			PQfreemem(extension_sql);
-            if (zSQL_dynamic != NULL) {
-                free(zSQL_dynamic);
-            }
+            PQfreemem(extension_sql);
+            free(zSQL_dynamic);
             return 1;
         }
-
-    }
-    if (zSQL_dynamic != NULL) {
-        free(zSQL_dynamic);
     }
 
     // cleanup
     free(name);
     free(escaped_path);
+    free(zSQL_dynamic);
     PQfreemem(name_sql);
     PQfreemem(escaped_path_sql);
 	PQfreemem(extension_sql);
@@ -1249,10 +1268,10 @@ int64_t TskDbPostgreSQL::findParObjId(const TSK_FS_FILE * fs_file, const char *p
         }
     }
 
-    // Need to break up 'path' in to the parent folder to match in 'parent_path' and the folder 
+    // Need to break up 'path' in to the parent folder to match in 'parent_path' and the folder
     // name to match with the 'name' column in tsk_files table
-    char *parent_name = "";
-    char *parent_path = ""; 
+    const char *parent_name = "";
+    const char *parent_path = "";
     if (TskDb::getParentPathAndName(parentPath, &parent_path, &parent_name)){
         return -1;
     }
@@ -1273,7 +1292,7 @@ int64_t TskDbPostgreSQL::findParObjId(const TSK_FS_FILE * fs_file, const char *p
     zSQL_fixed[1023] = '\0';
     char *zSQL_dynamic = NULL; // Only used if the query does not fit in the fixed length buffer
     char *zSQL = zSQL_fixed;
-    int bufLen = 1024;
+    size_t bufLen = 1024;
 
     // Check if the path may be too long
     if (strlen(escaped_parent_name_sql) + strlen(escaped_path_sql) + 200 > bufLen) {
@@ -1296,9 +1315,7 @@ int64_t TskDbPostgreSQL::findParObjId(const TSK_FS_FILE * fs_file, const char *p
             tsk_error_reset();
             tsk_error_set_errno(TSK_ERR_AUTO_DB);
             tsk_error_set_errstr("Error creating query for parent object ID for: %s", parentPath);
-            if (zSQL_dynamic != NULL) {
-                free(zSQL_dynamic);
-            }
+            free(zSQL_dynamic);
             PQfreemem(escaped_path_sql);
             PQfreemem(escaped_parent_name_sql);
             return -1;
@@ -1307,16 +1324,12 @@ int64_t TskDbPostgreSQL::findParObjId(const TSK_FS_FILE * fs_file, const char *p
 
     // check if a valid result set was returned
     if (verifyNonEmptyResultSetSize(zSQL, res, expectedNumFileds, "TskDbPostgreSQL::findParObjId: Unexpected number of columns in result set: Expected %d, Received %d\n")) {
-        if (zSQL_dynamic != NULL) {
-            free(zSQL_dynamic);
-        }
+        free(zSQL_dynamic);
         return -1;
     }
 
     int64_t parObjId = atoll(PQgetvalue(res, 0, 0));
-    if (zSQL_dynamic != NULL) {
-        free(zSQL_dynamic);
-    }
+    free(zSQL_dynamic);
     PQclear(res);
     PQfreemem(escaped_path_sql);
     PQfreemem(escaped_parent_name_sql);
@@ -1325,7 +1338,7 @@ int64_t TskDbPostgreSQL::findParObjId(const TSK_FS_FILE * fs_file, const char *p
 
 /**
 * return a hash of the passed in string. We use this
-* for full paths. 
+* for full paths.
 * From: http://www.cse.yorku.ca/~oz/hash.html
 */
 uint32_t TskDbPostgreSQL::hash(const unsigned char *str) {
@@ -1344,12 +1357,12 @@ uint32_t TskDbPostgreSQL::hash(const unsigned char *str) {
 
 /**
 * Store info about a directory in a complex map structure as a cache for the
-* files who are a child of this directory and want to know its object id. 
+* files who are a child of this directory and want to know its object id.
 *
 * @param fsObjId fs id of this directory
 * @param fs_file File for the directory to store
 * @param path Full path (parent and this file) of the directory
-* @param objId object id of the directory 
+* @param objId object id of the directory
 */
 void TskDbPostgreSQL::storeObjId(const int64_t & fsObjId, const TSK_FS_FILE *fs_file, const char *path, const int64_t & objId) {
     // skip the . and .. entries
@@ -1366,14 +1379,14 @@ void TskDbPostgreSQL::storeObjId(const int64_t & fsObjId, const TSK_FS_FILE *fs_
     if (TSK_FS_TYPE_ISNTFS(fs_file->fs_info->ftype)) {
         /* Use the sequence stored in meta (which could be one larger than the name value
         * if the directory is deleted. We do this because the par_seq gets added to the
-        * name structure when it is added to the directory based on teh value stored in 
+        * name structure when it is added to the directory based on teh value stored in
         * meta. */
         seq = fs_file->meta->seq;
     }
     else {
         seq = path_hash;
     }
-    
+
     map<TSK_INUM_T, map<uint32_t, map<uint32_t, int64_t> > > &fsMap = m_parentDirIdCache[fsObjId];
     if (fsMap.count(fs_file->name->meta_addr) == 0) {
         fsMap[fs_file->name->meta_addr][seq][path_hash] = objId;
@@ -1533,8 +1546,8 @@ TSK_RETVAL_ENUM TskDbPostgreSQL::addVirtualDir(const int64_t fsObjId, const int6
         "VALUES ("
         "NULL, NULL,"
         "NULL,"
-        "%lld,"
-        "%lld,"
+        "%" PRId64 ","
+        "%" PRId64 ","
         "%" PRId64 ","
         "%d,"
         "%s,"
@@ -1587,7 +1600,7 @@ typedef struct _checkFileLayoutRangeOverlap{
     const vector<TSK_DB_FILE_LAYOUT_RANGE> & ranges;
     bool hasOverlap;
 
-    _checkFileLayoutRangeOverlap(const vector<TSK_DB_FILE_LAYOUT_RANGE> & ranges)
+    explicit _checkFileLayoutRangeOverlap(const vector<TSK_DB_FILE_LAYOUT_RANGE> & ranges)
         : ranges(ranges),hasOverlap(false) {}
 
     bool getHasOverlap() const { return hasOverlap; }
@@ -1608,7 +1621,7 @@ typedef struct _checkFileLayoutRangeOverlap{
             if (start <= otherEnd && end >= otherStart) {
                 hasOverlap = true;
                 break;
-            }       
+            }
         }
     }
 
@@ -1682,7 +1695,7 @@ TSK_RETVAL_ENUM TskDbPostgreSQL::addFileWithLayoutRange(const TSK_DB_FILES_TYPE_
         break;
 
     case TSK_DB_FILES_TYPE_UNUSED_BLOCKS:
-        fileNameSs << "Unused";     
+        fileNameSs << "Unused";
         break;
 
     case TSK_DB_FILES_TYPE_CARVED:
@@ -1703,7 +1716,7 @@ TSK_RETVAL_ENUM TskDbPostgreSQL::addFileWithLayoutRange(const TSK_DB_FILES_TYPE_
 
     //dome some checking
     //ensure there is no overlap and each range has unique byte range
-    const checkFileLayoutRangeOverlap & overlapRes = 
+    const checkFileLayoutRangeOverlap & overlapRes =
         for_each(ranges.begin(), ranges.end(), checkFileLayoutRangeOverlap(ranges));
     if (overlapRes.getHasOverlap() ) {
         tsk_error_reset();
@@ -1753,7 +1766,7 @@ TSK_RETVAL_ENUM TskDbPostgreSQL::addLayoutFileInfo(const int64_t parObjId, const
         return TSK_ERR;
 
     //fsObjId can be NULL
-    char nullStr[8] = "NULL";    
+    char nullStr[8] = "NULL";
     char *fsObjIdStrPtr = NULL;
     char fsObjIdStr[32];
     if (fsObjId != 0) {
@@ -1775,7 +1788,7 @@ TSK_RETVAL_ENUM TskDbPostgreSQL::addLayoutFileInfo(const int64_t parObjId, const
     }
     snprintf(zSQL, 2048, "INSERT INTO tsk_files (has_layout, fs_obj_id, obj_id, data_source_obj_id, type, attr_type, attr_id, name, meta_addr, meta_seq, dir_type, meta_type, dir_flags, meta_flags, size, crtime, ctime, atime, mtime, mode, gid, uid) "
         "VALUES ("
-        "1, %s, %lld,"
+        "1, %s, %" PRId64 ","
         "%" PRId64 ","
         "%d,"
         "NULL,NULL,%s,"
@@ -1825,7 +1838,7 @@ int TskDbPostgreSQL::addVolumeInfo(const TSK_VS_PART_INFO * vs_part,
     }
 
     snprintf(zSQL, 1024, "INSERT INTO tsk_vs_parts (obj_id, addr, start, length, descr, flags)"
-        "VALUES (%lld, %" PRIuPNUM ",%" PRIuOFF ",%" PRIuOFF ",%s,%d)",
+        "VALUES (%" PRId64 ", %" PRIuPNUM ",%" PRIuOFF ",%" PRIuOFF ",%s,%d)",
         objId, (int) vs_part->addr, vs_part->start, vs_part->len,
         descr_sql, vs_part->flags);
 
@@ -1849,7 +1862,7 @@ int TskDbPostgreSQL::addFileLayoutRange(int64_t a_fileObjId, uint64_t a_byteStar
 {
     char foo[1024];
 
-    snprintf(foo, 1024, "INSERT INTO tsk_file_layout(obj_id, byte_start, byte_len, sequence) VALUES (%lld, %llu, %llu, %d)",
+    snprintf(foo, 1024, "INSERT INTO tsk_file_layout(obj_id, byte_start, byte_len, sequence) VALUES (%" PRId64 ", %" PRIu64 ", %" PRIu64 ", %d)",
         a_fileObjId, a_byteStart, a_byteLen, a_sequence);
 
     return attempt_exec(foo, "Error adding data to tsk_file_layout table: %s\n");
@@ -1936,7 +1949,7 @@ TSK_RETVAL_ENUM TskDbPostgreSQL::getFsRootDirObjectInfo(const int64_t fsObjId, T
     char zSQL[1024];
     int expectedNumFileds = 3;
     snprintf(zSQL, 1024, "SELECT tsk_objects.obj_id,tsk_objects.par_obj_id,tsk_objects.type "
-        "FROM tsk_objects,tsk_files WHERE tsk_objects.par_obj_id = %" PRId64 " AND tsk_files.obj_id = tsk_objects.obj_id AND tsk_files.name = ''", 
+        "FROM tsk_objects,tsk_files WHERE tsk_objects.par_obj_id = %" PRId64 " AND tsk_files.obj_id = tsk_objects.obj_id AND tsk_files.name = ''",
         fsObjId);
 
     PGresult* res = get_query_result_set(zSQL, "TskDbPostgreSQL::getFsRootDirObjectInfo: Error selecting from tsk_objects,tsk_files: %s (result code %d)\n");
@@ -1962,7 +1975,7 @@ TSK_RETVAL_ENUM TskDbPostgreSQL::getFsRootDirObjectInfo(const int64_t fsObjId, T
 * @returns TSK_ERR on error, TSK_OK on success
 */
 TSK_RETVAL_ENUM TskDbPostgreSQL::getFileLayouts(vector<TSK_DB_FILE_LAYOUT_RANGE> & fileLayouts) {
-    
+
     char zSQL[512];
     int expectedNumFileds = 4;
     snprintf(zSQL, 512, "SELECT obj_id, byte_start, byte_len, sequence FROM tsk_file_layout");
@@ -2059,7 +2072,7 @@ int TskDbPostgreSQL::createSavepoint(const char *name)
     char buff[1024];
 
     // In PostgreSQL savepoints can only be established when inside a transaction block.
-    // NOTE: this will only work if we have 1 savepoint. If we use multiple savepoints, PostgreSQL will 
+    // NOTE: this will only work if we have 1 savepoint. If we use multiple savepoints, PostgreSQL will
     // not allow us to call "BEGIN" inside a transaction. We will need to keep track of whether we are
     // in transaction and only call "BEGIN" if we are not in transaction. Alternatively we can keep
     // calling "BEGIN" every time we create a savepoint and simply ignore the error if there is one.
@@ -2104,10 +2117,10 @@ int TskDbPostgreSQL::releaseSavepoint(const char *name)
 
     if (attempt_exec(buff, "Error releasing savepoint: %s\n")) {
         return 1;
-    }    
+    }
 
     // In PostgreSQL savepoints can only be used inside a transaction block.
-    // NOTE: see note inside TskDbPostgreSQL::createSavepoint(). This will only work if we have 1 savepoint. 
+    // NOTE: see note inside TskDbPostgreSQL::createSavepoint(). This will only work if we have 1 savepoint.
     // If we add more savepoints we will need to keep track of where we are in transaction and only call
     // "COMMIT" when releasing the outer most savepoint.
     snprintf(buff, 1024, "COMMIT;");
@@ -2115,7 +2128,7 @@ int TskDbPostgreSQL::releaseSavepoint(const char *name)
     return attempt_exec(buff, "Error committing transaction: %s\n");
 }
 
-/** 
+/**
 * Returns true if database is opened.
 */
 bool TskDbPostgreSQL::isDbOpen()
@@ -2133,10 +2146,10 @@ bool TskDbPostgreSQL::isDbOpen()
     }
 }
 
-/** 
+/**
 * Returns true if database is in transaction.
 */
-bool TskDbPostgreSQL::inTransaction() { 
+bool TskDbPostgreSQL::inTransaction() {
 
     // In PostgreSQL nested BEGIN calls are not allowed. Therefore if we get an error when executing "BEGIN" query then we are inside a transaction.
     if (!conn)
@@ -2145,7 +2158,7 @@ bool TskDbPostgreSQL::inTransaction() {
     char sql[32];
     snprintf(sql, 32, "BEGIN;");
 
-    PGresult *res = PQexec(conn, sql); 
+    PGresult *res = PQexec(conn, sql);
     if (PQresultStatus(res) != PGRES_COMMAND_OK)
     {
         // PostgreSQL returned error, therefore we are inside a transaction block
@@ -2155,7 +2168,7 @@ bool TskDbPostgreSQL::inTransaction() {
 
     // If we are here then we were not inside a transaction. Undo the "BEGIN".
     snprintf(sql, 32, "COMMIT;");
-    res = PQexec(conn, sql); 
+    res = PQexec(conn, sql);
     if (PQresultStatus(res) != PGRES_COMMAND_OK)
     {
         // how can this happen? and what to return in this scenario? I guess we are not in transaction since we couldn't "commit".
@@ -2202,7 +2215,5 @@ hton_any(T &input)
     return output;
 }*/
 
+#endif // HAVE_LIBPQ_
 
-
-#endif // TSK_WIN32
-#endif // HAVE_POSTGRESQL

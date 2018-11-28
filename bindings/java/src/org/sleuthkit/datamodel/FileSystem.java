@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  * 
- * Copyright 2011 Basis Technology Corp.
+ * Copyright 2011-2017 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -184,14 +184,14 @@ public class FileSystem extends AbstractContent {
 	public void finalize() throws Throwable {
 		try {
 			if (filesystemHandle != 0) {
-				SleuthkitJNI.closeFs(filesystemHandle);
+				// SleuthkitJNI.closeFs(filesystemHandle); // closeFs is currently a no-op
 				filesystemHandle = 0;
 			}
 		} finally {
 			super.finalize();
 		}
 	}
-
+	
 	@Override
 	public <T> T accept(SleuthkitItemVisitor<T> v) {
 		return v.visit(this);
@@ -200,16 +200,6 @@ public class FileSystem extends AbstractContent {
 	@Override
 	public <T> T accept(ContentVisitor<T> v) {
 		return v.visit(this);
-	}
-
-	@Override
-	public List<Content> getChildren() throws TskCoreException {
-		return getSleuthkitCase().getAbstractFileChildren(this);
-	}
-
-	@Override
-	public List<Long> getChildrenIds() throws TskCoreException {
-		return getSleuthkitCase().getAbstractFileChildrenIds(this);
 	}
 
 	@Override

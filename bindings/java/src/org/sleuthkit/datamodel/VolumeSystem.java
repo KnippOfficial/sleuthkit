@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  * 
- * Copyright 2011 Basis Technology Corp.
+ * Copyright 2011-2017 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -116,7 +116,7 @@ public class VolumeSystem extends AbstractContent {
 		if (volumeSystemHandle != 0) {
 			synchronized (this) {
 				if (volumeSystemHandle != 0) {
-					SleuthkitJNI.closeVs(volumeSystemHandle);
+					// SleuthkitJNI.closeVs(volumeSystemHandle); // closeVs is currently a no-op
 					volumeSystemHandle = 0;
 				}
 			}
@@ -131,7 +131,7 @@ public class VolumeSystem extends AbstractContent {
 			super.finalize();
 		}
 	}
-
+	
 	@Override
 	public <T> T accept(SleuthkitItemVisitor<T> v) {
 		return v.visit(this);

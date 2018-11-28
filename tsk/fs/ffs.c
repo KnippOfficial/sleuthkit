@@ -47,7 +47,7 @@ ffs_group_load(FFS_INFO * ffs, FFS_GRPNUM_T grp_num)
     /*
      * Sanity check
      */
-    if (grp_num < 0 || grp_num >= ffs->groups_count) {
+    if (grp_num >= ffs->groups_count) {
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_FS_ARG);
         tsk_error_set_errstr
@@ -85,8 +85,8 @@ ffs_group_load(FFS_INFO * ffs, FFS_GRPNUM_T grp_num)
 
         /* Perform a sanity check on the data to make sure offsets are in range */
         cg = (ffs_cgd *) ffs->grp_buf;
-        if ((tsk_gets32(fs->endian, cg->cg_iusedoff) > ffs->ffsbsize_b)
-            || (tsk_gets32(fs->endian, cg->cg_freeoff) > ffs->ffsbsize_b)) {
+        if ((tsk_gets32(fs->endian, cg->cg_iusedoff) > (int)ffs->ffsbsize_b)
+            || (tsk_gets32(fs->endian, cg->cg_freeoff) > (int)ffs->ffsbsize_b)) {
             tsk_error_reset();
             tsk_error_set_errno(TSK_ERR_FS_CORRUPT);
             tsk_error_set_errstr2("ffs_group_load: Group %" PRI_FFSGRP
@@ -172,11 +172,11 @@ ffs_dinode_load(FFS_INFO * ffs, TSK_INUM_T inum, ffs_inode * dino_buf)
         }
 
         else {
-            ssize_t cnt;
             /* Get the base and offset addr for the inode in the tbl */
             addr = itod_lcl(fs, ffs->fs.sb1, inum);
 
             if (ffs->itbl_addr != addr) {
+                ssize_t cnt;
                 cnt = tsk_fs_read_block
                     (fs, addr, ffs->itbl_buf, ffs->ffsbsize_b);
                 if (cnt != ffs->ffsbsize_b) {
@@ -846,12 +846,11 @@ ffs_inode_walk(TSK_FS_INFO * fs, TSK_INUM_T start_inum,
 {
     char *myname = "ffs_inode_walk";
     FFS_INFO *ffs = (FFS_INFO *) fs;
-    FFS_GRPNUM_T grp_num;
     ffs_cgd *cg = NULL;
     TSK_INUM_T inum;
     unsigned char *inosused = NULL;
     TSK_FS_FILE *fs_file;
-    int myflags;
+    unsigned int myflags;
     TSK_INUM_T ibase = 0;
     TSK_INUM_T end_inum_tmp;
     ffs_inode *dino_buf;
@@ -936,6 +935,7 @@ ffs_inode_walk(TSK_FS_INFO * fs, TSK_INUM_T start_inum,
      */
     for (inum = start_inum; inum <= end_inum_tmp; inum++) {
         int retval;
+        FFS_GRPNUM_T grp_num;
 
         /*
          * Be sure to use the proper cylinder group data.
@@ -1228,8 +1228,8 @@ ffs_block_walk(TSK_FS_INFO * fs, TSK_DADDR_T a_start_blk,
                 int frags;
 
                 /* Ideally, we want to read in block sized chunks, verify we can do that */
-                frags = (a_end_blk > addr + ffs->ffsbsize_f - 1 ?
-                    ffs->ffsbsize_f : (int) (a_end_blk + 1 - addr));
+                frags = a_end_blk > addr + ffs->ffsbsize_f - 1 ?
+                    ffs->ffsbsize_f : a_end_blk + 1 - addr;
 
                 cnt =
                     tsk_fs_read_block(fs, addr, cache_blk_buf,
@@ -1883,7 +1883,7 @@ ffs_istat(TSK_FS_INFO * fs, TSK_FS_ISTAT_FLAG_ENUM istat_flags, FILE * hFile, TS
     tsk_fprintf(hFile, "\nDirect Blocks:\n");
 
     if (istat_flags & TSK_FS_ISTAT_RUNLIST) {
-        TSK_FS_ATTR * fs_attr_direct = tsk_fs_file_attr_get_type(fs_file,
+        const TSK_FS_ATTR * fs_attr_direct = tsk_fs_file_attr_get_type(fs_file,
             TSK_FS_ATTR_TYPE_DEFAULT, 0, 0);
         if (fs_attr_direct && (fs_attr_direct->flags & TSK_FS_ATTR_NONRES)) {
             if (tsk_fs_attr_print(fs_attr_direct, hFile)) {
@@ -1979,15 +1979,12 @@ ffs_close(TSK_FS_INFO * fs)
 
     fs->tag = 0;
 
-    if (ffs->grp_buf)
-        free(ffs->grp_buf);
-
-    if (ffs->itbl_buf)
-        free(ffs->itbl_buf);
+    free(ffs->grp_buf);
+    free(ffs->itbl_buf);
 
     tsk_deinit_lock(&ffs->lock);
 
-    free((char *) ffs->fs.sb1);
+    free(ffs->fs.sb1);
     tsk_fs_free(fs);
 }
 
@@ -2016,6 +2013,13 @@ ffs_open(TSK_IMG_INFO * img_info, TSK_OFF_T offset, TSK_FS_TYPE_ENUM ftype, uint
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_FS_ARG);
         tsk_error_set_errstr("Invalid FS Type in ffs_open");
+        return NULL;
+    }
+
+    if (img_info->sector_size == 0) {
+        tsk_error_reset();
+        tsk_error_set_errno(TSK_ERR_FS_ARG);
+        tsk_error_set_errstr("ffs_open: sector size is 0");
         return NULL;
     }
 
@@ -2146,25 +2150,13 @@ ffs_open(TSK_IMG_INFO * img_info, TSK_OFF_T offset, TSK_FS_TYPE_ENUM ftype, uint
         ffs->groups_count = tsk_gets32(fs->endian, ffs->fs.sb1->cg_num);
     }
 
-
-    /*
-     * Block calculations
-     */
-    fs->first_block = 0;
-    fs->last_block = fs->last_block_act = fs->block_count - 1;
-    fs->dev_bsize = img_info->sector_size;
-
-    // determine the last block we have in this image
-    if ((TSK_DADDR_T) ((img_info->size - offset) / fs->block_size) <
-        fs->block_count)
-        fs->last_block_act =
-            (img_info->size - offset) / fs->block_size - 1;
-
-    if ((fs->block_size % 512) || (ffs->ffsbsize_b % 512)) {
+    // apply some sanity checks before we start using these numbers
+    if ((fs->block_size == 0) || (ffs->ffsbsize_b == 0) || (ffs->ffsbsize_f == 0) 
+        || (fs->block_size % 512) || (ffs->ffsbsize_b % 512)) {
         tsk_error_reset();
         tsk_error_set_errno(TSK_ERR_FS_MAGIC);
         tsk_error_set_errstr
-            ("Not a UFS FS (invalid fragment or block size)");
+        ("Not a UFS FS (invalid fragment or block size)");
         if (tsk_verbose)
             fprintf(stderr, "ufs_open: invalid fragment or block size\n");
         fs->tag = 0;
@@ -2184,6 +2176,21 @@ ffs_open(TSK_IMG_INFO * img_info, TSK_OFF_T offset, TSK_FS_TYPE_ENUM ftype, uint
         tsk_fs_free((TSK_FS_INFO *)ffs);
         return NULL;
     }
+
+    /*
+     * Block calculations
+     */
+    fs->first_block = 0;
+    fs->last_block = fs->last_block_act = fs->block_count - 1;
+    fs->dev_bsize = img_info->sector_size;
+
+    // determine the last block we have in this image
+    if ((TSK_DADDR_T) ((img_info->size - offset) / fs->block_size) <
+        fs->block_count)
+        fs->last_block_act =
+            (img_info->size - offset) / fs->block_size - 1;
+
+    
 
     // Inode / meta data calculations
     if (fs->ftype == TSK_FS_TYPE_FFS2) {

@@ -125,10 +125,8 @@ static void checkIfBlockIsFinished(TSK_IMG_WRITER* writer, TSK_OFF_T blockNum) {
 
     /* Mark the block as finished and free the memory for its sector bitmap */
     writer->blockStatus[blockNum] = IMG_WRITER_BLOCK_STATUS_FINISHED;
-    if (writer->blockToSectorBitmap[blockNum] != NULL) {
-        free(writer->blockToSectorBitmap[blockNum]);
-        writer->blockToSectorBitmap[blockNum] = NULL;
-    }
+    free(writer->blockToSectorBitmap[blockNum]);
+    writer->blockToSectorBitmap[blockNum] = NULL;
 }
 
 /*
@@ -508,35 +506,25 @@ static TSK_RETVAL_ENUM tsk_img_writer_close(TSK_IMG_WRITER* img_writer) {
     }	
 
     /* Free the memory */
-    if (img_writer->blockToSectorNumber != NULL) {
-        free(img_writer->blockToSectorNumber);
-        img_writer->blockToSectorNumber = NULL;
-    }
+    free(img_writer->blockToSectorNumber);
+    img_writer->blockToSectorNumber = NULL;
 
-    if (img_writer->blockStatus != NULL) {
-        free(img_writer->blockStatus);
-        img_writer->blockStatus = NULL;
-    }
+    free(img_writer->blockStatus);
+    img_writer->blockStatus = NULL;
 
     if (img_writer->blockToSectorBitmap != NULL) {
         for (uint32_t i = 0; i < img_writer->totalBlocks; i++) {
-            if (img_writer->blockToSectorBitmap[i] != NULL) {
-                free(img_writer->blockToSectorBitmap[i]);
-            }
+            free(img_writer->blockToSectorBitmap[i]);
         }
         free(img_writer->blockToSectorBitmap);
         img_writer->blockToSectorBitmap = NULL;
     }
 
-    if (img_writer->footer != NULL) {
-        free(img_writer->footer);
-        img_writer->footer = NULL;
-    }
+    free(img_writer->footer);
+    img_writer->footer = NULL;
 
-    if (img_writer->fileName != NULL) {
-        free(img_writer->fileName);
-        img_writer->fileName = NULL;
-    }
+    free(img_writer->fileName);
+    img_writer->fileName = NULL;
 
     return TSK_OK;
 }
@@ -587,8 +575,15 @@ static TSK_RETVAL_ENUM tsk_img_writer_finish_image(TSK_IMG_WRITER* img_writer) {
                     return TSK_ERR;
                 }
                 /* Using tsk_img_read here to make sure we get the lock */
-                tsk_img_read(img_writer->img_info, offset, buffer, TSK_IMG_INFO_CACHE_LEN);
+                if (tsk_img_read(img_writer->img_info, offset, buffer, TSK_IMG_INFO_CACHE_LEN) < 0) {
+                    // this usually happens when the device has been unplugged
+                    return TSK_ERR;
+                }
             }
+            /* In Autopsy, tsk_img_writer_finish_image() was starving other threads that were trying to do
+             * basic reads and made the app impossible to use. Add the short sleep to give
+             * other threads a chance to get the underlying locks. */
+            Sleep(1);
         }
     }
 

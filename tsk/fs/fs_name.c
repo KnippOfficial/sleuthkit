@@ -25,6 +25,12 @@
  */
 #include "tsk_fs_i.h"
 
+#include <time.h>
+
+#ifndef TZNAME
+#define TZNAME __tzname
+#endif
+
 char tsk_fs_name_type_str[TSK_FS_NAME_TYPE_STR_MAX][2] =
     { "-", "p", "c", "d", "b", "r",
     "l", "s", "h", "w", "v", "V"
@@ -125,14 +131,11 @@ tsk_fs_name_free(TSK_FS_NAME * fs_name)
     if ((!fs_name) || (fs_name->tag != TSK_FS_NAME_TAG))
         return;
 
-    if (fs_name->name) {
-        free(fs_name->name);
-        fs_name->name = NULL;
-    }
-    if (fs_name->shrt_name) {
-        free(fs_name->shrt_name);
-        fs_name->shrt_name = NULL;
-    }
+    free(fs_name->name);
+    fs_name->name = NULL;
+
+    free(fs_name->shrt_name);
+    fs_name->shrt_name = NULL;
 
     free(fs_name);
 }
