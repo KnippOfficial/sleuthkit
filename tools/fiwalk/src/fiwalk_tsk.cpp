@@ -24,6 +24,8 @@
 #include "plugin.h"
 #include "unicode_escape.h"
 #include "tsk/fs/tsk_fatfs.h"
+#include "tsk/pool/TSK_POOL_INFO.h"
+#include "tsk/pool/ZFS_POOL.h"
 
 #define MAX_SPARSE_SIZE 1024*1024*64
 
@@ -526,4 +528,33 @@ int process_image_file(int argc,char * const *argv,const char *audit_file,u_int 
 	tsk_img_close(img_info);
     }
     return count;
+}
+
+int process_image_pool(int argc,char * const *argv,const char *audit_file,u_int sector_size)
+{
+    // TSK_POOL_INFO* pool_info;
+    // int count = 0;
+
+    // pool_info = new TSK_POOL_INFO(TSK_LIT_ENDIAN, argv[OPTIND]);
+    // TSK_POOL* pool = pool_info->createPoolObject();   
+
+    // if (pool_info==0){
+	// comment("TSK Error (pool_open) %s sector_size=%u",tsk_error_get(),sector_size);
+    // } else {
+	// if(audit_file){
+	//     comment("audit file: %s",audit_file);
+	//     process_scalpel_audit_file(img_info,audit_file);
+	// }
+	// else{
+	//     if (opt_debug) printf("calling do_dimage()\n");
+
+	//     int r = proc_vs(img_info);
+	//     if (r<0){
+	// 	comment("TSK Error (do_dimage) %s",tsk_error_get());
+	//     }
+	//     if(r>0) count += r;
+	// }
+	// tsk_img_close(img_info);
+    // }
+    // return count;
 }

@@ -35,6 +35,7 @@
 /* config.h must be first */
 #include "tsk/tsk_tools_i.h"
 
+
 #include <stdio.h>
 #include "fiwalk.h"
 
@@ -476,6 +477,7 @@ int main(int argc, char * const *argv1)
     string command_line = xml::make_command_line(argc,argv1);
     bool opt_zap = false;
     u_int sector_size=512;			// defaults to 512; may be changed by AFF
+	bool is_pool = false;
 
     struct timeval tv0;
     struct timeval tv1;
@@ -497,7 +499,7 @@ int main(int argc, char * const *argv1)
 	argv = (TSK_TCHAR * const*) argv1;
 #endif
 	
-    while ((ch = GETOPT(argc, argv, _TSK_T("A:a:C:dfG:gmv1IMX:S:T:VZn:c:b:xOzh?"))) > 0 ) { // s: removed
+    while ((ch = GETOPT(argc, argv, _TSK_T("A:a:C:dfG:gmv1IMX:S:T:VPZn:c:b:xOzh?"))) > 0 ) { // s: removed
 	switch (ch) {
 	case _TSK_T('1'): opt_sha1 = true;break;
 	case _TSK_T('m'):
@@ -524,6 +526,7 @@ int main(int argc, char * const *argv1)
 	case _TSK_T('I'): opt_ignore_ntfs_system_files=true;break;
 	case _TSK_T('M'): opt_md5 = true;
 	case _TSK_T('O'): opt_allocated_only=true; break;
+	case _TSK_T('P'): is_pool=true; break;
 	case _TSK_T('S'):
             opt_sector_hash = true;
             sectorhash_size = TATOI(OPTARG); break;
@@ -714,7 +717,12 @@ int main(int argc, char * const *argv1)
     }
     if(x) x->pop();
 
-    if (opt_debug) printf("calling tsk_img_open(%s)\n",filename);
+	if (is_pool) {
+    	if (opt_debug) printf("calling pool info on %s\n",filename);
+	}
+	else {
+		if (opt_debug) printf("calling tsk_img_open(%s)\n",filename);
+	}
 
 #ifdef SIGINFO
     signal(SIGINFO,sig_info);
@@ -723,14 +731,23 @@ int main(int argc, char * const *argv1)
 #ifdef TSK_WIN32
     int count = process_image_file(argc,argv1,audit_file,sector_size);
     if(count<=0 || sector_size!=512){
-	comment("Retrying with 512 byte sector size.");
-	count = process_image_file(argc,argv1,audit_file,512);
+		comment("Retrying with 512 byte sector size.");
+		count = process_image_file(argc,argv1,audit_file,512);
     }
 #else
-    int count = process_image_file(argc,argv,audit_file,sector_size);
-    if(count<=0 || sector_size!=512){
-	comment("Retrying with 512 byte sector size.");
-	count = process_image_file(argc,argv,audit_file,512);
+	if (is_pool) {
+		int count = process_image_pool(argc,argv,audit_file,sector_size);
+		if(count<=0 || sector_size!=512){
+			comment("Retrying with 512 byte sector size.");
+			count = process_image_pool(argc,argv,audit_file,512);
+		}
+	}
+	else {
+		int count = process_image_file(argc,argv,audit_file,sector_size);
+		if(count<=0 || sector_size!=512){
+			comment("Retrying with 512 byte sector size.");
+			count = process_image_file(argc,argv,audit_file,512);
+		}
     }
 #endif
 

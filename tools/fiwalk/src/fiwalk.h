@@ -158,6 +158,7 @@ void partition_info(const string &name, const struct timeval &ts);
 
 /* fiwalk_tsk.cpp */
 int process_image_file(int argc,char *const *argv,const char *audit_file,u_int sector_size);
+int process_image_pool(int argc,char *const *argv,const char *audit_file,u_int sector_size);
 
 #ifdef _MSC_VER
 #define F_OK 00
