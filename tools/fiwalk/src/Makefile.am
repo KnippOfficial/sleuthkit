@@ -1,6 +1,6 @@
 bin_PROGRAMS = fiwalk 
-AM_CPPFLAGS = -I../../..
-AM_CXXFLAGS += -Wno-unused-command-line-argument
+AM_CPPFLAGS = -I../../.. -std=c++11
+AM_CXXFLAGS += -Wno-unused-command-line-argument -std=c++11
 LDADD = ../../../tsk/libtsk.la
 
 EXTRA_DIST = README_PLUGINS.txt ficonfig.txt \
