@@ -18,6 +18,7 @@
 #include <iostream>
 #include <tsk/libtsk.h>
 #include "../../pool/ZFS_POOL.h"
+#include <tsk/fs/zfs/ZAP.h>
 
 class Dnode;
 
@@ -29,9 +30,11 @@ private:
 
 public:
     ObjectSet(TSK_ENDIAN_ENUM endian, uint8_t data[], ZFS_POOL* pool);
+    ObjectSet(TSK_ENDIAN_ENUM endian, Dnode *dnode, ZFS_POOL *pool);
     ~ObjectSet();
 
     Dnode* getDnode(uint64_t i)const;
+    int getDnodesSize() ;
 };
 
 
