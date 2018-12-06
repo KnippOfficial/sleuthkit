@@ -46,6 +46,7 @@ public:
     dmu_object_type_t getType() {return dn_type;};
     uint64_t getBonusValue(string name);
     Blkptr* getBonusBlkptr();
+    int getBlkptrSize();
     std::map<string, uint64_t> dn_bonus;
 
     friend std::ostream& operator<<(std::ostream& os, const Dnode& dnode);

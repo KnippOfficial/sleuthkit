@@ -57,6 +57,10 @@ void Dnode::getData(std::vector<char> &data) {
     }
 }
 
+int Dnode::getBlkptrSize() {
+   return dn_blkptr.size();
+}
+
 void Dnode::generateBonus(TSK_ENDIAN_ENUM endian, uint8_t *data) {
     switch (unsigned(dn_bonustype)) {
         case 16:
@@ -117,16 +121,16 @@ ostream &operator<<(ostream &os, const Dnode &dnode) {
     os << "type: " << dnode.dn_type << "\t|\t lvl: " << unsigned(dnode.dn_nlevels) << "\t|\t nblkptrs: "
        << unsigned(dnode.dn_nblkptr) << "\t|\t bonus type/len: " << unsigned(dnode.dn_bonustype) << "/"
        << dnode.dn_bonuslen << endl;
-    cout << endl;
+    os << endl;
 
     if (dnode.dn_bonuslen > 0) {
         for (auto &it : dnode.dn_bonus) {
             if (it.first.find("time") != string::npos)
-                cout << it.first << " = " << timestampToDateString(it.second) << endl;
+                os << it.first << " = " << timestampToDateString(it.second) << endl;
             else
-                cout << it.first << " = " << it.second << endl;
+                os << it.first << " = " << it.second << endl;
         }
-        cout << endl;
+        os << endl;
     }
 
     if (dnode.dn_bonus_blkptr != NULL) {
@@ -146,6 +150,8 @@ ostream &operator<<(ostream &os, const Dnode &dnode) {
 
     return os;
 }
+
+
 
 Dnode::~Dnode() {
     for (int i = 0; i < this->dn_blkptr.size(); ++i) {
