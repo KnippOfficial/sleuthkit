@@ -43,7 +43,12 @@ uint64_t getRootdatasetID(ObjectSet *MOS) {
 ZAP *getZAPFromDnode(Dnode *dnode) {
     std::vector<char> data;
     dnode->getData(data);
-    return new ZAP(TSK_LIT_ENDIAN, (uint8_t *) data.data(), data.size());
+    // cerr << "ZFS_Functions::getZAPFromDnode: Dnode data size: " << data.size() << std::endl;
+    
+    if (data.size() > 0)
+        return new ZAP(TSK_LIT_ENDIAN, (uint8_t *) data.data(), data.size());
+    
+    return nullptr;
 }
 
 
