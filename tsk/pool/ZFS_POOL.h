@@ -15,6 +15,7 @@
 #define ZFS_FTK_ZFS_POOL_H
 
 #include <tsk/libtsk.h>
+#include <sys/stat.h>
 #include <map>
 #include <iterator>
 #include "../fs/zfs/NVList.h"
@@ -57,12 +58,20 @@ public:
     void fls(string dataset = "", int uberblock = -1);
     void istat(int object_number, string dataset = "", int uberblock = -1);
     void icat(int object_number, string dataset = "", int uberblock = -1);
+    void fwalk(string dataset = "", int uberblock = -1, string restorePath = "", bool debug = false);
 
     ObjectSet* getMOS(Uberblock* uberblock);
     std::map<string, uint64_t> getDatasets(ObjectSet* MOS);
     string getPoolName();
     ObjectSet* getObjectSetFromDnode(Dnode* dnode);
     void listFiles(ObjectSet* os, uint64_t dnodeID,  std::map<string, uint64_t> datasets, bool isDirectory, string path, int tabLevel=0);
+    void fileWalk(ObjectSet *os, uint64_t dnodeID, std::map<string, uint64_t> datasets,
+                string path, string restorepath = "", bool debug = false);
+    void printDirectory(ObjectSet *fileSystem, string path, std::map<string, uint64_t> datasets, 
+                uint64_t dnodeID, int tabLevel, bool debug = false);
+    void restoreDirectory(ObjectSet *fileSystem, string path, std::map<string, uint64_t> datasets, 
+                uint64_t dnodeID, string restorePath, bool debug);
+    void retrieveFile(ObjectSet *fileSystem, uint64_t dnodeID, std::vector<char> &fileContent) ;
 
 };
 

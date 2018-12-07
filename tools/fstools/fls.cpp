@@ -239,7 +239,6 @@ main(int argc, char **argv1)
 
     if(isPool){
         pool_info = new TSK_POOL_INFO(TSK_LIT_ENDIAN, argv[OPTIND]);
-        pool_info->displayAllDevices();
         TSK_POOL* pool = pool_info->createPoolObject();
 
         cerr << "fls.cpp:: zpool created" << std::endl;

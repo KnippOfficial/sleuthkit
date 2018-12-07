@@ -50,6 +50,7 @@ public:
     void fls(string dataset = "", int uberblock = -1);
     void istat(int object_number, string dataset = "", int uberblock = -1);
     void icat(int object_number, string dataset = "", int uberblock = -1);
+    void fwalk(string dataset = "", int uberblock = -1, string restorePath = "", bool debug = false);
     void printChunkInformation(std::ostream &os) const;
     bool isChunkDataAvailable (const btrForensics::ChunkItem*) const;
     //TODO: wrap function around that

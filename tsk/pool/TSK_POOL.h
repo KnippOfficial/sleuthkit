@@ -33,6 +33,8 @@ public:
 
     virtual void print(std::ostream &os) const = 0;
 
+    virtual void fwalk(string str_dataset, int transaction, string restorePath, bool debug) = 0;
+
     friend std::ostream &operator<<(std::ostream &os, const TSK_POOL &pool);
 
 };

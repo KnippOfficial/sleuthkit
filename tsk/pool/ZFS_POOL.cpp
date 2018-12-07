@@ -58,6 +58,9 @@ ZFS_POOL::ZFS_POOL(TSK_POOL_INFO *pool)
         if (!temp->addDevice(current_guid, it)) {
             cerr << it.first << " with GUID " << current_guid << " is already in the pool!" << endl;
         }
+        else {
+            // cerr << "ZFS_POOL::ZFS_POOL: " << it.first << " with GUID " << current_guid << " added to pool!" << endl;
+        }
     }
     checkReconstructable();
 
@@ -324,7 +327,9 @@ string ZFS_POOL::getPoolName() {
 ObjectSet* ZFS_POOL::getObjectSetFromDnode(Dnode *dnode) {
     std::vector<char> datasetData;
     dnode->getData(datasetData);
+    cerr << "ZFS_POOL::getObjectSetFromDnode: Dnode data size: " << datasetData.size() << std::endl;
     return new ObjectSet(TSK_LIT_ENDIAN, (uint8_t *) datasetData.data(), this);
+    // return new ObjectSet(TSK_LIT_ENDIAN, dnode, this);
 }
 
 //TODO: get img pointer from object set
@@ -335,29 +340,67 @@ void ZFS_POOL::listFiles(ObjectSet *os, uint64_t dnodeID, std::map<string, uint6
     ObjectSet *nextObjectSet = NULL;
     char tab = ' ';
 
+    cerr << "ZFS_POOL::listFiles: processing path " << path << " which is directory: " << isDirectory << std::endl;
+
     if (!isDirectory) {
         Dnode *dataset = os->getDnode(dnodeID);
+        
+        cerr << "ZFS_POOL::listFiles: found Dnode dataset with id " << dnodeID << " and blkptr_size " << dataset->getBlkptrSize() << std::endl;
+          cerr << *dataset << std::endl;
+
         nextObjectSet = this->getObjectSetFromDnode(dataset);
+        cerr << "ZFS_POOL::listFiles: created ObjectSet with size " << nextObjectSet->getDnodesSize() << std::endl;
+
         Dnode *masterNode = nextObjectSet->getDnode(1);
+        cerr << "ZFS_POOL::listFiles: found Dnode masterNode with id 1 and blkptr_size " << masterNode->getBlkptrSize() << std::endl;
+        cerr << *masterNode << std::endl;
+        
         zap = getZAPFromDnode(masterNode);
+
+        cerr << "ZFS_POOL::listFiles: created zap from masternode" << std::endl;
+        cerr << *zap << std::endl;
+        
         uint64_t root_directory_id = zap->getValue("ROOT");
         delete zap;
 
         Dnode *rootDirectory = nextObjectSet->getDnode(root_directory_id);
         zap = getZAPFromDnode(rootDirectory);
 
+        cerr << "ZFS_POOL::listFiles: created zap from ROOT" << std::endl;
+        cerr << *zap << std::endl;
+        
+
     } else {
         Dnode *dnode = os->getDnode(dnodeID);
+        cerr << "ZFS_POOL::listFiles: found Dnode with id " << dnodeID << " and blkptr_size " << dnode->getBlkptrSize() << std::endl;
+        // cerr << *dnode << std::endl;
+
         zap = getZAPFromDnode(dnode);
+        
+        if (zap == nullptr) {
+            cerr << "ZFS_POOL::listFiles: zap for directory from Dnode with id  " << dnodeID << " could not be created " << std::endl;
+            return;
+        }
+        cerr << "ZFS_POOL::listFiles: created zap for directory from Dnode with id  " << dnodeID << std::endl;
+        cerr << *zap << std::endl;
         nextObjectSet = os;
     }
+
+    delete zap;
+    return;
 
     for (auto& it : zap->entries) {
         uint64_t value = it.second;
         uint8_t type = *(((uint8_t *) &(it.second)) + 7);
+
+        // Type = file
         if (type == 0x80) {
             cout << std::string(tabLevel * 4, tab) << "|---" << it.first << " : " << unsigned(value) << std::endl;
-        } else if (type == 0x40) {
+        }
+        
+        // Type = dataset / snapshot or directory
+        else if (type == 0x40) {
+
             //for snapshots, this will never be the case (good to avoid inconsistencies)
             if (datasets.find(path + "/" + it.first) == datasets.end()) {
                 cout << std::string(tabLevel * 4, tab) << "|---" << it.first << " : " << unsigned(value)
@@ -370,7 +413,10 @@ void ZFS_POOL::listFiles(ObjectSet *os, uint64_t dnodeID, std::map<string, uint6
                 this->listFiles(MOS, getHeaddatasetID(MOS, datasets[path + "/" + it.first]), datasets, FALSE,
                           (path + "/" + it.first), tabLevel + 1);
             }
-        } else {
+        } 
+        
+        // Type = anything else
+        else {
             cout << it.first << " : " << unsigned(value) << "(" << unsigned(type) << ")" << std::endl;
         }
     }
@@ -378,8 +424,210 @@ void ZFS_POOL::listFiles(ObjectSet *os, uint64_t dnodeID, std::map<string, uint6
         delete nextObjectSet;
     }
     delete zap;
-
 }
+
+void ZFS_POOL::printDirectory(ObjectSet *fileSystem, string path, std::map<string, uint64_t> datasets, 
+            uint64_t dnodeID, int tabLevel, bool debug) {
+
+    Dnode *directory = fileSystem->getDnode(dnodeID);
+    if (directory == nullptr) {
+        cerr << "Dnode with ID " << dnodeID << " not found in Object-Set" << std::endl;
+        return;
+    }
+
+    if (debug) cerr << *directory << std::endl;
+    ZAP* zap = getZAPFromDnode(directory);
+
+    if (zap == nullptr) {
+        cerr << "Could not create ZAP for Dnode with id " << dnodeID << std::endl;
+        return;
+    }
+    char tab = ' ';
+
+    for (auto& it : zap->entries) {
+
+        // Important: split in value and type
+        uint64_t value = unsigned(it.second);
+        uint8_t type = *(((uint8_t *) &(it.second)) + 7);
+
+        // Type = file
+        if (type == 0x80) {
+            cout << std::string(tabLevel * 4, tab) << "|---" << it.first << " : " << value << std::endl;
+        }
+        
+        // Type = dataset / snapshot or directory
+        else if (type == 0x40) {
+             //for snapshots, this will never be the case (good to avoid inconsistencies)
+            if (datasets.find(path + "/" + it.first) == datasets.end()) {
+                cout << std::string(tabLevel * 4, tab) << "|---" << it.first << " (Directory) : " << unsigned(value) << std::endl;
+                this->printDirectory(fileSystem, path, datasets, value, tabLevel + 1);
+            } else {
+                cout << std::string(tabLevel * 4, tab) << "|---" << it.first << " (Dataset) : " << unsigned(value) << std::endl;
+            }
+        } 
+        
+        // Type = anything else
+        else {
+            cout << it.first << " : " << value << "(" << unsigned(type) << ")" << std::endl;
+        }
+    }
+    delete zap;
+}
+
+void ZFS_POOL::restoreDirectory(ObjectSet *fileSystem, string path, std::map<string, uint64_t> datasets, 
+        uint64_t dnodeID, string restorePath, bool debug) {
+
+    Dnode *directory = fileSystem->getDnode(dnodeID);
+    if (directory == nullptr) {
+        cerr << "Dnode with ID " << dnodeID << " not found in Object-Set" << std::endl;
+        return;
+    }
+    // cerr << *directory << std::endl;
+    ZAP* zap = getZAPFromDnode(directory);
+    char tab = ' ';
+
+    // cerr << *zap << std::endl;
+
+    
+    if (zap == nullptr) {
+        cerr << "ZFS_POOL::restoreDirectory: Could not create ZAP for Dnode with id " << dnodeID << std::endl;
+        return;
+    }
+    
+
+    // Create restore directory
+    struct stat st;
+    if(stat(restorePath.c_str(),&st) == 0) {
+        if( st.st_mode & (S_IFDIR != 0))
+            cerr << "ZFS_POOL::restoreDirectory: " << restorePath << " already exists!" << endl;
+            return;
+    }
+    else if(mkdir(restorePath.c_str(), 0777) == -1) {
+         cerr << "ZFS_POOL::restoreDirectory: Could not create restoreDirectory " << restorePath << std::endl;
+         return;
+    }
+    cout << "ZFS_POOL::restoreDirectory: Created directory " << restorePath << std::endl;
+
+    for (auto& it : zap->entries) {
+
+        // Important: split in value and type
+        uint64_t value = unsigned(it.second);
+        uint8_t type = *(((uint8_t *) &(it.second)) + 7);
+
+        // Type = file
+        if (type == 0x80) {
+            cout << "ZFS_POOL::restoreDirectory:  Restoring file " << it.first << " to directory " << restorePath << std::endl;
+            std::vector<char> fileContent;
+            this->retrieveFile(fileSystem, value, fileContent);
+            ofstream write ((restorePath + "/" + it.first));
+            std::copy(fileContent.begin(), fileContent.end(), ostream_iterator<char>(write));
+            write.close();
+            // std::copy(fileContent.begin(), fileContent.end(), ostream_iterator<char>(std::cout));
+        }
+        
+        // Type = dataset / snapshot or directory
+        else if (type == 0x40) {
+            restorePath = restorePath + "/" + it.first;
+             //for snapshots, this will never be the case (good to avoid inconsistencies)
+            if (datasets.find(path + "/" + it.first) == datasets.end()) {
+               this->restoreDirectory(fileSystem, path, datasets, value, restorePath, debug);
+            } else {
+                // create dir
+                cout << "ZFS_POOL::restoreDirectory:  Created directory for dataset " << it.first << std::endl;       
+                if(mkdir(restorePath.c_str(), 0777) == -1) {
+                    cerr << "ZFS_POOL::restoreDirectory: Could not create Directory " << restorePath << std::endl;
+                }
+            }
+        } 
+        
+        // Type = anything else
+        else {
+            // do nothing
+        }
+    }
+    delete zap;
+}
+
+void ZFS_POOL::retrieveFile(ObjectSet *fileSystem, uint64_t dnodeID, std::vector<char> &fileContent) {
+    Dnode* file = fileSystem->getDnode(dnodeID);
+    if (file == nullptr) {
+        cerr << "object with number " << dnodeID << " does not exist!" << endl;
+        return;
+    } else {
+        std::vector<char> data;
+        file->getData(data);
+
+        auto it = file->dn_bonus.find("zp_size");
+        if(it != file->dn_bonus.end() and file->getType() != DMU_OT_DIRECTORY_CONTENTS)
+            fileContent.insert(fileContent.end(), data.begin(), (data.begin() + file->dn_bonus["zp_size"]));
+        else
+            fileContent.insert(fileContent.end(), data.begin(), data.end());
+    }
+}
+
+
+
+
+void ZFS_POOL::fileWalk(ObjectSet *os, uint64_t dnodeID, std::map<string, uint64_t> datasets,
+               string path, string restorepath, bool debug) {
+    ZAP *zap;
+    ObjectSet *MOS = os;
+    ObjectSet *nextObjectSet = NULL;
+    
+    if (debug) cerr << "ZFS_POOL::fileWalk: processing path " << path << std::endl;
+
+    // DATASET Dnode
+    Dnode *dataset = os->getDnode(dnodeID);
+    
+    if (debug) cerr << "======================================================================================" << std::endl;
+    if (debug) cerr << "ZFS_POOL::fileWalk: found Dnode dataset with id " << dnodeID << " and blkptr_size " << dataset->getBlkptrSize() << std::endl;
+    if (debug) cerr << *dataset << std::endl;
+
+    std::vector<char> datasetData;
+    dataset->getData(datasetData);
+
+    // MetaDnode Dnode
+    Dnode* metadnode = new Dnode(TSK_LIT_ENDIAN, (uint8_t *) datasetData.data(), this);
+    
+    if (debug) cerr << "======================================================================================" << std::endl;
+    if (debug) cerr << "ZFS_POOL::fileWalk: metaDnode created: " << std::endl;
+    if (debug) cerr << *metadnode << std::endl;
+
+    // ObjectSet for fileSystem
+    ObjectSet* fileSystem = new ObjectSet(TSK_LIT_ENDIAN, metadnode, this);
+
+    if (debug) cerr << "ZFS_POOL::fileWalk: created fileSystem ObjectSet" << std::endl;
+    
+    // MasterNode of filesystem
+    Dnode *masterNode = fileSystem->getDnode(1);
+    if (debug) cerr << "======================================================================================" << std::endl;
+    if (debug) cerr << "ZFS_POOL::fileWalk: found Dnode masterNode" << std::endl;
+    if (debug) cerr << *masterNode << std::endl;
+    
+    zap = getZAPFromDnode(masterNode);
+
+    if (zap == nullptr) {
+        cerr << "ZFS_POOL::fileWalk: cannot create zap from masterNode" << std::endl;
+        return;
+    }
+    else {
+        if (debug) cerr << "======================================================================================" << std::endl;
+        if (debug) cerr << "ZFS_POOL::fileWalk: created zap from masternode" << std::endl;
+        if (debug) cerr << *zap << std::endl;
+    }
+
+    // Follow MasterNode -> ROOT directory
+    uint64_t root_directory_id = zap->getValue("ROOT");
+    delete zap;
+
+    if (restorepath == "") {
+        this->printDirectory(fileSystem, path, datasets, root_directory_id, 0, debug);
+    }
+    else {
+        this->restoreDirectory(fileSystem, path, datasets, root_directory_id, restorepath, debug);
+    }
+}
+
 
 //file system specific functions
 
@@ -462,6 +710,7 @@ void ZFS_POOL::fls(string str_dataset, int uberblock){
 
     if(uberblock == -1) {
         usedUberblock = this->getMostrecentUberblock();
+        cerr << "Using TXG: " << usedUberblock << endl;
     } else {
         usedUberblock = this->getUberblockArray()->getByTXG(uberblock);
         cerr << "Using TXG: " << uberblock << endl;
@@ -486,7 +735,7 @@ void ZFS_POOL::fls(string str_dataset, int uberblock){
         } else {
             if (!snapshot) {
                 listFiles(MOS, getHeaddatasetID(MOS, datasets.find(str_dataset)->second), datasets, FALSE,
-                          str_dataset);
+                           str_dataset);
             }
             if (snapshot) {
                 std::map<string, uint64_t> snapshots;
@@ -495,12 +744,66 @@ void ZFS_POOL::fls(string str_dataset, int uberblock){
                     cerr << "Dataset " << str_dataset << " does not have a snapshot named " << str_snapshot << "!"
                          << endl;
                 } else {
-                    listFiles(MOS, snapshots.find(str_snapshot)->second, datasets, FALSE, str_dataset);
+                   listFiles(MOS, snapshots.find(str_snapshot)->second, datasets, FALSE, str_dataset);
                 }
             }
         }
     } else {
-        listFiles(MOS, getHeaddatasetID(MOS, rootDatasetDirectoryID), datasets, FALSE, this->getPoolName());
+        fileWalk(MOS, getHeaddatasetID(MOS, rootDatasetDirectoryID), datasets, this->getPoolName(), "");
+    }
+
+    delete MOS;
+}
+
+void ZFS_POOL::fwalk(string str_dataset, int uberblock, string restorePath, bool debug){
+    Uberblock *usedUberblock;
+
+    if(uberblock == -1) {
+        usedUberblock = this->getMostrecentUberblock();
+        if (debug) cerr << "Using TXG: " << usedUberblock << endl;
+    } else {
+        usedUberblock = this->getUberblockArray()->getByTXG(uberblock);
+         if (debug) cerr << "Using TXG: " << uberblock << endl;
+    }
+
+     if (debug) cerr << "Using restorePath: " << restorePath << endl;
+
+    ObjectSet *MOS = this->getMOS(usedUberblock);
+    std::map<string, uint64_t> datasets = this->getDatasets(MOS);
+    uint64_t rootDatasetDirectoryID = getRootdatasetDirectoryID(MOS);
+
+    if (str_dataset != "") {
+        bool snapshot = false;
+        std::string str_snapshot = "";
+
+        if(string(str_dataset).find('@') != string::npos){
+            snapshot = true;
+            str_snapshot = string(str_dataset).substr(string(str_dataset).find('@')+1);
+            str_dataset = string(str_dataset).substr(0, string(str_dataset).find('@'));
+        }
+
+        if (datasets.find(str_dataset) == datasets.end()) {
+            cerr << "No dataset named " << str_dataset << " found!" << endl;
+        } else {
+            if (!snapshot) {
+                fileWalk(MOS, getHeaddatasetID(MOS, datasets.find(str_dataset)->second), datasets, 
+                            str_dataset, restorePath, debug);
+            }
+            if (snapshot) {
+                std::map<string, uint64_t> snapshots;
+                getSnapshots(MOS, datasets.find(str_dataset)->second, &snapshots);
+                if (snapshots.find(str_snapshot) == snapshots.end()) {
+                    cerr << "Dataset " << str_dataset << " does not have a snapshot named " << str_snapshot << "!"
+                         << endl;
+                } else {
+                    // TODO currenly not tested for snapshots
+                    // fileWalk(MOS, snapshots.find(str_snapshot)->second, datasets, 
+                    //         str_dataset, restorePath);
+                }
+            }
+        }
+    } else {
+        fileWalk(MOS, getHeaddatasetID(MOS, rootDatasetDirectoryID), datasets, this->getPoolName(), restorePath, debug);
     }
 
     delete MOS;

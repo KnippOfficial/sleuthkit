@@ -357,6 +357,11 @@ void BTRFS_POOL::fls(string sub_file_system, int generation) {
     examiner->fsTree->listDirItemsById(targetId, true, true, true, 0, cout);
 }
 
+//TODO not implemented
+void BTRFS_POOL::fwalk(string dataset, int uberblock, string restorePath, bool debug){
+
+}
+
 
 void BTRFS_POOL::istat(int object_number, string sub_file_system, int generation) {
     uint64_t fsTreeID = 0;

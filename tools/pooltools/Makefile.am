@@ -4,8 +4,9 @@ LDFLAGS += -static
 EXTRA_DIST = .indent.pro
 
 
-bin_PROGRAMS = pls
+bin_PROGRAMS = pls pwalk
 pls_SOURCES = pls.cpp
+pwalk_SOURCES = pwalk.cpp
 
 indent:
 	indent *.cpp
